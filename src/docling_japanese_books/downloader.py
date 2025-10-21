@@ -1,7 +1,8 @@
 """
 Model downloader for Docling Japanese Books.
 
-This module handles downloading and caching models locally.
+This module handles downloading and caching models locally using HuggingFace Hub.
+All models are downloaded via snapshot_download() for consistency and reliability.
 """
 
 import logging
@@ -9,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from huggingface_hub import snapshot_download
+from huggingface_hub import HfApi, snapshot_download
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -18,8 +19,6 @@ from rich.progress import (
     TaskProgressColumn,
     TextColumn,
 )
-from sentence_transformers import SentenceTransformer
-from transformers import AutoTokenizer
 
 from .config import config
 
@@ -52,65 +51,89 @@ class ModelDownloader:
         self.downloaded_count = 0
         self.total_models = 3  # tokenizer, embedding, vision
 
-    def download_tokenizer(self, progress: Progress, task_id: int) -> DownloadResult:
-        """Download the Granite Docling tokenizer."""
-        model_name = self.config.chunking.tokenizer_model
-        progress.update(task_id, description=f"📝 Downloading tokenizer: {model_name}")
+        # Initialize HuggingFace API client
+        self.hf_api = HfApi()
 
+    def _verify_model_exists(self, repo_id: str) -> bool:
+        """Verify that a model exists on HuggingFace Hub."""
         try:
-            # Download to local cache first
-            AutoTokenizer.from_pretrained(
-                model_name,
-                trust_remote_code=True,
-                cache_dir=self.models_dir / "tokenizers",
+            self.hf_api.repo_info(repo_id=repo_id)
+            return True
+        except Exception as e:
+            self.logger.warning(f"Could not verify model {repo_id}: {e}")
+            return False
+
+    def _download_model(
+        self,
+        repo_id: str,
+        model_type: str,
+        cache_subdir: str,
+        emoji: str,
+        progress: Progress,
+        task_id: int,
+    ) -> DownloadResult:
+        """Generic model download function using HuggingFace Hub."""
+        progress.update(
+            task_id, description=f"{emoji} Verifying {model_type}: {repo_id}"
+        )
+
+        # Verify model exists on HuggingFace Hub
+        if not self._verify_model_exists(repo_id):
+            error_msg = f"Model {repo_id} not found on HuggingFace Hub"
+            progress.update(task_id, description=f"❌ {model_type.title()} not found")
+            return DownloadResult(success=False, error=error_msg)
+
+        progress.update(
+            task_id, description=f"{emoji} Downloading {model_type}: {repo_id}"
+        )
+        try:
+            # Use HuggingFace Hub to download the entire model
+            cache_dir = self.models_dir / cache_subdir
+            model_path = snapshot_download(
+                repo_id=repo_id,
+                cache_dir=str(cache_dir),
+                local_files_only=False,
             )
 
-            model_path = self.models_dir / "tokenizers" / model_name.replace("/", "--")
             self.downloaded_count += 1
-
             progress.update(
                 task_id,
-                description=f"✅ Tokenizer downloaded ({self.downloaded_count}/{self.total_models})",
+                description=f"✅ {model_type.title()} downloaded ({self.downloaded_count}/{self.total_models})",
             )
-            self.logger.info(f"✅ Tokenizer downloaded successfully to {model_path}")
-            return DownloadResult(success=True, model_path=model_path)
+            self.logger.info(
+                f"✅ {model_type.title()} downloaded successfully to {model_path}"
+            )
+            return DownloadResult(success=True, model_path=Path(model_path))
 
         except Exception as e:
-            error_msg = f"Failed to download tokenizer {model_name}: {e}"
-            progress.update(task_id, description="❌ Tokenizer failed")
+            error_msg = f"Failed to download {model_type} {repo_id}: {e}"
+            progress.update(task_id, description=f"❌ {model_type.title()} failed")
             self.logger.error(error_msg)
             return DownloadResult(success=False, error=error_msg)
+
+    def download_tokenizer(self, progress: Progress, task_id: int) -> DownloadResult:
+        """Download the Granite Docling tokenizer using HuggingFace Hub."""
+        return self._download_model(
+            repo_id=self.config.chunking.tokenizer_model,
+            model_type="tokenizer",
+            cache_subdir="tokenizers",
+            emoji="📝",
+            progress=progress,
+            task_id=task_id,
+        )
 
     def download_embedding_model(
         self, progress: Progress, task_id: int
     ) -> DownloadResult:
-        """Download the sentence transformer embedding model."""
-        model_name = self.config.chunking.embedding_model
-        progress.update(task_id, description=f"🧮 Downloading embedding: {model_name}")
-
-        try:
-            # Download to local cache
-            SentenceTransformer(
-                model_name, cache_folder=str(self.models_dir / "embeddings")
-            )
-
-            model_path = self.models_dir / "embeddings" / model_name.replace("/", "--")
-            self.downloaded_count += 1
-
-            progress.update(
-                task_id,
-                description=f"✅ Embedding downloaded ({self.downloaded_count}/{self.total_models})",
-            )
-            self.logger.info(
-                f"✅ Embedding model downloaded successfully to {model_path}"
-            )
-            return DownloadResult(success=True, model_path=model_path)
-
-        except Exception as e:
-            error_msg = f"Failed to download embedding model {model_name}: {e}"
-            progress.update(task_id, description="❌ Embedding failed")
-            self.logger.error(error_msg)
-            return DownloadResult(success=False, error=error_msg)
+        """Download the sentence transformer embedding model using HuggingFace Hub."""
+        return self._download_model(
+            repo_id=self.config.chunking.embedding_model,
+            model_type="embedding",
+            cache_subdir="embeddings",
+            emoji="🧮",
+            progress=progress,
+            task_id=task_id,
+        )
 
     def download_vision_model(self, progress: Progress, task_id: int) -> DownloadResult:
         """Download the vision model for image description."""
@@ -119,30 +142,14 @@ class ModelDownloader:
             self.logger.info("Vision models disabled, skipping download")
             return DownloadResult(success=True)
 
-        model_name = self.config.docling.vision_model_repo_id
-        progress.update(task_id, description=f"👁️  Downloading vision: {model_name}")
-
-        try:
-            # Use huggingface_hub to download the entire model
-            model_path = snapshot_download(
-                repo_id=model_name,
-                cache_dir=self.models_dir / "vision",
-                local_files_only=False,
-            )
-
-            self.downloaded_count += 1
-            progress.update(
-                task_id,
-                description=f"✅ Vision downloaded ({self.downloaded_count}/{self.total_models})",
-            )
-            self.logger.info(f"✅ Vision model downloaded successfully to {model_path}")
-            return DownloadResult(success=True, model_path=Path(model_path))
-
-        except Exception as e:
-            error_msg = f"Failed to download vision model {model_name}: {e}"
-            progress.update(task_id, description="❌ Vision failed")
-            self.logger.error(error_msg)
-            return DownloadResult(success=False, error=error_msg)
+        return self._download_model(
+            repo_id=self.config.docling.vision_model_repo_id,
+            model_type="vision",
+            cache_subdir="vision",
+            emoji="👁️",
+            progress=progress,
+            task_id=task_id,
+        )
 
     def download_all_models(self) -> dict[str, DownloadResult]:
         """Download all required models with progress tracking."""
@@ -203,19 +210,16 @@ class ModelDownloader:
 
     def check_models_exist(self) -> dict[str, bool]:
         """Check which models are already downloaded."""
+        models_to_check = [
+            ("tokenizer", "tokenizers"),
+            ("embedding", "embeddings"),
+            ("vision", "vision"),
+        ]
+
         status = {}
-
-        # Check tokenizer
-        tokenizer_path = self.models_dir / "tokenizers"
-        status["tokenizer"] = tokenizer_path.exists() and any(tokenizer_path.iterdir())
-
-        # Check embedding model
-        embedding_path = self.models_dir / "embeddings"
-        status["embedding"] = embedding_path.exists() and any(embedding_path.iterdir())
-
-        # Check vision model
-        vision_path = self.models_dir / "vision"
-        status["vision"] = vision_path.exists() and any(vision_path.iterdir())
+        for model_name, cache_subdir in models_to_check:
+            model_path = self.models_dir / cache_subdir
+            status[model_name] = model_path.exists() and any(model_path.iterdir())
 
         return status
 

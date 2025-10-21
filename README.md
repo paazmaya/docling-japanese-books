@@ -2,13 +2,15 @@
 
 A streamlined document processing tool that uses Docling to extract, process, and store Japanese books and documents for LLM training workflows. Built with hardcoded configurations for simplicity and consistency.
 
+![Duckling in hakama reading a Japanese book](./logo.png)
+
 ## Overview
 
 This project provides a robust, opinionated pipeline for:
 - **Document Ingestion**: Batch processing of documents in various formats (PDF, DOCX, HTML, etc.)
 - **Content Extraction**: Using Docling's advanced document understanding capabilities with IBM Granite Vision 3.3 2B
 - **Image Processing**: Extract and annotate images with SHA-256 hashing for deduplication
-- **Vector Storage**: Milvus Lite database with enhanced metadata including image references
+- **Vector Storage**: [Milvus](https://milvus.io/) Lite database with enhanced metadata including image references
 - **LLM Training Preparation**: Optimized chunking and serialization for training data
 
 ## Key Features
@@ -27,12 +29,42 @@ This project provides a robust, opinionated pipeline for:
 
 ## Architecture
 
-```
-Documents → Docling Processing → Image Extraction → Vector Storage → Multiple Outputs
-    ↓             ↓                    ↓                ↓                ↓
-  Various       Extract Text        SHA-256 Hash       Milvus Lite      JSON/Markdown
-  Formats       Tables, Images      Deduplicate        Enhanced         JSONL/Chunks
-                Vision Analysis     Store Separately   Metadata         Ready for LLM
+```mermaid
+flowchart TD
+    A[📁 Input Documents] --> B{Document Type}
+    B -->|PDF, DOCX, PPTX| C[🔧 Docling Processing]
+    B -->|HTML, MD, TXT| C
+    B -->|Images| C
+    
+    C --> D[📝 Text Extraction]
+    C --> E[🖼️ Image Extraction]
+    C --> F[📊 Table Extraction]
+    
+    D --> G[🧠 IBM Granite Vision 3.3B]
+    E --> H[🔐 SHA-256 Hashing]
+    F --> D
+    
+    G --> I[📖 Japanese Text Analysis]
+    H --> J[🗂️ Deduplicated Storage]
+    
+    I --> K[✂️ Hierarchical Chunking]
+    J --> L[💾 Image Repository]
+    
+    K --> M[🧮 Sentence Embeddings]
+    L --> N[📋 Image Metadata]
+    
+    M --> O[(🔍 Milvus Vector DB)]
+    N --> O
+    
+    O --> P[📄 JSON Export]
+    O --> Q[📝 Markdown Export]
+    O --> R[📦 JSONL Chunks]
+    O --> S[🔍 Vector Search]
+    
+    style A fill:#e1f5fe
+    style O fill:#f3e5f5
+    style G fill:#fff3e0
+    style H fill:#e8f5e8
 ```
 
 ## Installation
@@ -42,26 +74,45 @@ Documents → Docling Processing → Image Extraction → Vector Storage → Mul
 - Python 3.9+
 - [uv](https://github.com/astral-sh/uv) for dependency management
 - Internet connection (for model downloads)
-- ~4GB free disk space (for models)
+- ~7GB free disk space (for models)
 
 ### Setup
 
+#### Option 1: Development Installation (Recommended)
+
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone git@github.com:paazmaya/docling-japanese-books.git
 cd docling-japanese-books
 
 # Install uv if not already installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install dependencies
+# Install dependencies and package in development mode
 uv sync
 
 # Download all required models (this will take ~30 minutes)
-uv run python -m src.docling_japanese_books.cli download
+uv run docling-japanese-books download
 
 # Verify installation with test documents
-uv run python -m src.docling_japanese_books.cli process test_docs/
+uv run docling-japanese-books process test_docs/
+```
+
+#### Option 2: Package Installation (Future)
+
+Once published to PyPI, users will be able to install directly:
+
+```bash
+# Install from PyPI (when available)
+pip install docling-japanese-books
+
+# Or with uv
+uv add docling-japanese-books
+
+# Then use directly (no uv run needed)
+docling-japanese-books download
+docling-japanese-books process documents/
+docling-japanese-books search "query text"
 ```
 
 ### Model Information
@@ -90,56 +141,58 @@ Benefits of local storage:
 
 ### Command Overview
 
-The CLI provides three main commands:
+The CLI is available as `docling-japanese-books` console script and provides three main commands:
+
+> **Note**: In development mode, use `uv run docling-japanese-books`. When installed as a package, you can use `docling-japanese-books` directly.
 
 ```bash
 # Download all required models (run once)
-uv run python -m src.docling_japanese_books.cli download [--verbose] [--force]
+uv run docling-japanese-books download [--verbose] [--force]
 
 # Process documents with image extraction and vector storage
-uv run python -m src.docling_japanese_books.cli process DIRECTORY [--verbose] [--dry-run]
+uv run docling-japanese-books process DIRECTORY [--verbose] [--dry-run]
 
 # Search the vector database
-uv run python -m src.docling_japanese_books.cli search "query text" [--limit 10] [--verbose]
+uv run docling-japanese-books search "query text" [--limit 10] [--verbose]
 ```
 
 ### Processing Documents
 
 ```bash
 # Process test documents (includes Japanese karate book PDF)
-uv run python -m src.docling_japanese_books.cli process test_docs/
+uv run docling-japanese-books process test_docs/
 
 # Dry run to see what would be processed
-uv run python -m src.docling_japanese_books.cli process documents/ --dry-run
+uv run docling-japanese-books process documents/ --dry-run
 
 # Process with verbose logging
-uv run python -m src.docling_japanese_books.cli process documents/ --verbose
+uv run docling-japanese-books process documents/ --verbose
 ```
 
 ### Searching Content
 
 ```bash
 # Search for content
-uv run python -m src.docling_japanese_books.cli search "martial arts techniques"
+uv run docling-japanese-books search "martial arts techniques"
 
 # Limit results
-uv run python -m src.docling_japanese_books.cli search "karate" --limit 3
+uv run docling-japanese-books search "karate" --limit 3
 
 # Search with verbose output
-uv run python -m src.docling_japanese_books.cli search "Japanese text" --verbose
+uv run docling-japanese-books search "Japanese text" --verbose
 ```
 
 ### Managing Models
 
 ```bash
 # Download all models with progress tracking
-uv run python -m src.docling_japanese_books.cli download
+uv run docling-japanese-books download
 
 # Force re-download (if models are corrupted)
-uv run python -m src.docling_japanese_books.cli download --force
+uv run docling-japanese-books download --force
 
 # Download with detailed logging
-uv run python -m src.docling_japanese_books.cli download --verbose
+uv run docling-japanese-books download --verbose
 ```
 
 ## Configuration

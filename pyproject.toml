@@ -66,15 +66,13 @@ all = [
 ]
 
 [project.scripts]
-docling-process = "docling_japanese_books.cli:main"
-docling-search = "docling_japanese_books.query:search"
-docling-stats = "docling_japanese_books.query:stats"
+docling-japanese-books = "docling_japanese_books.cli:cli"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/docling-japanese-books"
-Repository = "https://github.com/yourusername/docling-japanese-books.git"
-Documentation = "https://github.com/yourusername/docling-japanese-books#readme"
-"Bug Tracker" = "https://github.com/yourusername/docling-japanese-books/issues"
+Homepage = "https://github.com/paazmaya/docling-japanese-books"
+Repository = "https://github.com/paazmaya/docling-japanese-books.git"
+Documentation = "https://github.com/paazmaya/docling-japanese-books#readme"
+"Bug Tracker" = "https://github.com/paazmaya/docling-japanese-books/issues"
 
 [build-system]
 requires = ["hatchling"]
