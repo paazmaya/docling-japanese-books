@@ -1,5 +1,7 @@
 # Docling Japanese Books - Document Processing Pipeline
 
+[![Python CI](https://github.com/paazmaya/docling-japanese-books/actions/workflows/ci.yml/badge.svg)](https://github.com/paazmaya/docling-japanese-books/actions/workflows/ci.yml)
+
 A streamlined document processing tool that uses Docling to extract, process, and store Japanese books and documents for LLM training workflows. Built with hardcoded configurations for simplicity and consistency.
 
 See the amount of emojis used in this documentation? Sure, this has initially been vibe-coded during an evening...
