@@ -2,6 +2,8 @@
 
 A streamlined document processing tool that uses Docling to extract, process, and store Japanese books and documents for LLM training workflows. Built with hardcoded configurations for simplicity and consistency.
 
+See the amount of emojis used in this documentation? Sure, this has initially been vibe-coded during an evening...
+
 ![Duckling in hakama reading a Japanese book](./logo.png)
 
 ## Overview
@@ -247,6 +249,114 @@ This tool uses hardcoded configurations optimized for Japanese document processi
     └── [doc_name]/   # SHA-256 named image files
         ├── abc123.png
         └── def456.jpg
+```
+
+## Testing
+
+This project includes comprehensive testing capabilities for both local development and CI/CD workflows.
+
+### Local Testing
+
+#### Quick Local Test
+Run the comprehensive test pipeline to verify all components:
+
+```bash
+# Basic test (no models required)
+python test_pipeline.py
+
+# Or use the Makefile
+make test
+```
+
+#### Full Pipeline Test
+Test the complete pipeline with model downloads and document processing:
+
+```bash
+# Install dependencies and run full test
+make test-local
+
+# Or manually
+uv sync
+uv run docling-japanese-books download
+python test_pipeline.py
+```
+
+#### Manual Testing with Real Documents
+Test with the included Japanese karate book:
+
+```bash
+# Download models first
+uv run docling-japanese-books download
+
+# Process the test document
+uv run docling-japanese-books process test_docs/
+
+# Search for content
+uv run docling-japanese-books search "空手道"
+uv run docling-japanese-books search "martial arts"
+```
+
+### GitHub Actions CI/CD
+
+The project includes two complementary CI workflows:
+
+#### Fast Tests (basic-tests.yml)
+- **Duration**: ~10 minutes
+- **Triggers**: All pushes and PRs
+- **Coverage**: Code quality, imports, basic functionality
+- **Features**: 
+  - Ruff linting and formatting checks
+  - Import validation
+  - Configuration testing
+  - Conditional integration tests on main branch
+
+#### Comprehensive Pipeline (test-pipeline.yml)
+- **Duration**: ~60 minutes  
+- **Triggers**: Push to main, manual workflow dispatch
+- **Coverage**: Full pipeline testing with models
+- **Features**:
+  - Model download and caching (saves ~40GB between runs)
+  - Document processing with real test files
+  - Vector database validation
+  - Search functionality testing
+  - Resource monitoring and artifact collection
+
+#### CI Features
+- **Model Caching**: HuggingFace models cached between runs
+- **Artifact Collection**: Test results and logs uploaded for debugging  
+- **Resource Monitoring**: Memory and disk usage tracking
+- **Comprehensive Logging**: Detailed output for troubleshooting
+- **Parallel Testing**: Multiple test scenarios run simultaneously
+
+### Test Coverage
+
+The test suite covers:
+
+1. **Import Validation**: All modules import correctly
+2. **Configuration**: Settings validation and consistency
+3. **Model Management**: Download, verification, and caching
+4. **Document Processing**: Multi-format document handling
+5. **Vision Models**: Image extraction and annotation
+6. **Vector Database**: Storage, retrieval, and search
+7. **CLI Interface**: All commands and options
+8. **Error Handling**: Graceful failure and recovery
+
+### Quick Commands
+
+```bash
+# Development workflow
+make install       # Install dependencies
+make download      # Download models  
+make test         # Run local tests
+make lint         # Check code quality
+make format       # Format code
+
+# Processing workflow
+make process path=./documents/    # Process documents
+make search                       # Interactive search
+
+# Cleanup
+make clean        # Remove temporary files
 ```
 
 ## Implementation Status
