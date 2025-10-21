@@ -8,6 +8,7 @@ from pymilvus import MilvusClient
 from sentence_transformers import SentenceTransformer
 
 from .config import config
+from .late_chunking import LateChunkingProcessor
 
 
 class MilvusVectorDB:
@@ -21,12 +22,16 @@ class MilvusVectorDB:
         self._setup_milvus_client()
 
     def _setup_embedding_model(self) -> None:
-        """Set up the sentence transformer model for embeddings."""
+        """Set up the embedding model for multilingual Japanese support."""
         try:
             self.logger.info(
                 f"Loading embedding model: {self.config.chunking.embedding_model}"
             )
-            # Use local cache directory
+
+            # Initialize Late Chunking processor with BGE-M3
+            self.late_chunking = LateChunkingProcessor()
+
+            # Keep sentence transformers as fallback for simple embeddings
             cache_folder = (
                 Path(self.config.docling.artifacts_path).resolve() / "embeddings"
             )
@@ -34,7 +39,10 @@ class MilvusVectorDB:
             self.embedding_model = SentenceTransformer(
                 self.config.chunking.embedding_model, cache_folder=str(cache_folder)
             )
-            self.logger.info("Embedding model loaded successfully")
+
+            self.logger.info(
+                "BGE-M3 embedding model loaded successfully with Late Chunking support"
+            )
         except Exception as e:
             self.logger.error(f"Failed to load embedding model: {e}")
             raise
@@ -152,6 +160,68 @@ class MilvusVectorDB:
 
         except Exception as e:
             self.logger.error(f"Failed to insert document {doc_id}: {e}")
+            return False
+
+    def insert_document_with_late_chunking(
+        self,
+        doc_id: str,
+        full_document: str,
+        metadata: Optional[dict] = None,
+        max_chunk_length: int = 800,
+    ) -> bool:
+        """Insert document using Late Chunking for better context preservation."""
+        try:
+            collection_name = self.config.database.collection_name
+
+            # Use Late Chunking to process the document
+            chunks, chunk_embeddings = self.late_chunking.process_document(
+                full_document, max_chunk_length
+            )
+
+            data = []
+            for i, (chunk, embedding) in enumerate(zip(chunks, chunk_embeddings)):
+                if not chunk.strip():  # Skip empty chunks
+                    continue
+
+                # Prepare document data (no 'id' field since auto_id=True)
+                doc_data = {
+                    "vector": embedding.tolist()
+                    if hasattr(embedding, "tolist")
+                    else list(embedding),
+                    "text": chunk,
+                    "document_id": doc_id,
+                    "chunk_index": i,
+                    "chunking_method": "late_chunking",  # Track chunking method
+                }
+
+                # Add document-level metadata if provided
+                if metadata:
+                    doc_data.update(
+                        {
+                            "file_path": metadata.get("file_path", ""),
+                            "file_size": metadata.get("file_size", 0),
+                            "processed_at": metadata.get("processed_at", ""),
+                            "processing_time": metadata.get("processing_time", 0.0),
+                        }
+                    )
+
+                data.append(doc_data)
+
+            if data:
+                result = self.client.insert(collection_name=collection_name, data=data)
+                self.logger.info(
+                    f"Inserted {len(data)} Late Chunking chunks for document {doc_id}, "
+                    f"insert_count: {result.get('insert_count', 0)}"
+                )
+                return True
+            else:
+                self.logger.warning(f"No valid chunks to insert for document {doc_id}")
+                return False
+
+        except Exception as e:
+            self.logger.error(
+                f"Failed to insert document with Late Chunking {doc_id}: {e}"
+            )
             return False
 
     def search_similar(

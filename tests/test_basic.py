@@ -10,7 +10,9 @@ def test_config_loading():
     """Test that configuration loads correctly."""
     assert config.docling.enable_ocr is True
     assert config.chunking.tokenizer_model == "ibm-granite/granite-docling-258M"
-    assert config.chunking.embedding_model == "sentence-transformers/all-MiniLM-L6-v2"
+    assert config.chunking.embedding_model == "BAAI/bge-m3"
+    assert config.chunking.use_late_chunking is True
+    assert config.database.embedding_dimension == 1024
     assert config.database.database_type == "milvus"
     assert config.processing.batch_size == 10
     assert "json" in config.output.output_formats

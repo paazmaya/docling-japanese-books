@@ -361,5 +361,65 @@ def search(query_text: str, limit: int, verbose: bool) -> None:
         sys.exit(1)
 
 
+@cli.command()
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(path_type=Path),
+    default="embedding_evaluation_results.json",
+    help="Output file for evaluation results",
+)
+@click.option(
+    "--documents",
+    "-d",
+    type=click.Path(exists=True, path_type=Path),
+    help="JSON file with documents to evaluate (uses sample docs if not provided)",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Enable verbose logging",
+)
+def evaluate(output: Path, documents: Path, verbose: bool) -> None:
+    """Evaluate and compare embedding approaches for Japanese documents."""
+    import json
+
+    from .embedding_evaluation import (
+        EmbeddingEvaluator,
+        create_sample_japanese_documents,
+    )
+
+    console = Console()
+    log_level = "DEBUG" if verbose else "INFO"
+    setup_logging(log_level)
+
+    try:
+        evaluator = EmbeddingEvaluator()
+
+        # Load documents
+        if documents:
+            console.print(f"📖 Loading documents from: {documents}")
+            with documents.open("r", encoding="utf-8") as f:
+                docs = json.load(f)
+        else:
+            console.print("📖 Using sample Japanese documents for evaluation...")
+            docs = create_sample_japanese_documents()
+
+        console.print(f"🔬 Evaluating {len(docs)} documents...")
+        console.print("📊 Comparing Traditional vs Late Chunking approaches")
+        console.print("🧠 Testing BGE-M3 multilingual model vs sentence-transformers")
+        console.print()
+
+        # Run evaluation
+        evaluator.run_comparison_study(docs, output_path=output)
+
+        console.print(f"✅ Evaluation complete! Results saved to: {output}")
+
+    except Exception as e:
+        console.print(f"❌ Evaluation failed: {e}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli()

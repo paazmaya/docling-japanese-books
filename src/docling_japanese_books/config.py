@@ -91,8 +91,8 @@ class DatabaseConfig(BaseModel):
 
     # Vector settings
     embedding_dimension: int = Field(
-        default=384,
-        description="Embedding dimension for sentence-transformers/all-MiniLM-L6-v2",
+        default=1024,
+        description="Embedding dimension for BAAI/bge-m3 multilingual model",
     )
 
     # Connection settings
@@ -118,10 +118,11 @@ class ChunkingConfig(BaseModel):
     )
 
     # Embedding model for vector storage (separate from tokenizer)
-    # https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
+    # BGE-M3: Best multilingual model for Japanese, Chinese, Korean support
+    # https://huggingface.co/BAAI/bge-m3
     embedding_model: str = Field(
-        default="sentence-transformers/all-MiniLM-L6-v2",
-        description="Sentence transformer model for generating embeddings",
+        default="BAAI/bge-m3",
+        description="BGE-M3 multilingual embedding model with Japanese support",
     )
 
     # Chunk settings
@@ -137,6 +138,12 @@ class ChunkingConfig(BaseModel):
     )
     merge_list_items: bool = Field(
         default=True, description="Merge list items in hierarchical chunking"
+    )
+
+    # Late Chunking for improved context preservation (recommended for Japanese text)
+    use_late_chunking: bool = Field(
+        default=True,
+        description="Use Late Chunking for better context preservation in Japanese documents",
     )
     merge_peers: bool = Field(
         default=True, description="Merge peer chunks in hybrid chunking"

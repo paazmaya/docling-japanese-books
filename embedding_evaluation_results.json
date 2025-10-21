@@ -1,0 +1,98 @@
+[
+  {
+    "document_id": "milvus_release",
+    "traditional_metrics": {
+      "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "chunking_method": "traditional",
+      "avg_cosine_similarity": 0.0,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 0.10217905044555664,
+      "num_chunks": 1,
+      "avg_chunk_length": 272,
+      "context_preservation_score": 1.0,
+      "japanese_specific_score": 0.16351981461048126
+    },
+    "late_chunking_metrics": {
+      "model_name": "BAAI/bge-m3",
+      "chunking_method": "late_chunking",
+      "avg_cosine_similarity": 0.0,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 2.0808041095733643,
+      "num_chunks": 1,
+      "avg_chunk_length": 272,
+      "context_preservation_score": 1.0,
+      "japanese_specific_score": 0.3786328434944153
+    },
+    "improvement_percentage": 131.55166625976562,
+    "details": {
+      "traditional_chunks": 1,
+      "late_chunking_chunks": 1,
+      "document_length": 299,
+      "queries_tested": 8
+    }
+  },
+  {
+    "document_id": "technical_manual",
+    "traditional_metrics": {
+      "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "chunking_method": "traditional",
+      "avg_cosine_similarity": 0.0,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 0.028949975967407227,
+      "num_chunks": 1,
+      "avg_chunk_length": 250,
+      "context_preservation_score": 1.0,
+      "japanese_specific_score": 0.19310824573040009
+    },
+    "late_chunking_metrics": {
+      "model_name": "BAAI/bge-m3",
+      "chunking_method": "late_chunking",
+      "avg_cosine_similarity": 0.0,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 0.0852208137512207,
+      "num_chunks": 1,
+      "avg_chunk_length": 250,
+      "context_preservation_score": 1.0,
+      "japanese_specific_score": 0.41403093934059143
+    },
+    "improvement_percentage": 114.40355682373047,
+    "details": {
+      "traditional_chunks": 1,
+      "late_chunking_chunks": 1,
+      "document_length": 268,
+      "queries_tested": 8
+    }
+  },
+  {
+    "document_id": "user_guide",
+    "traditional_metrics": {
+      "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "chunking_method": "traditional",
+      "avg_cosine_similarity": 0.0,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 0.03061819076538086,
+      "num_chunks": 1,
+      "avg_chunk_length": 278,
+      "context_preservation_score": 1.0,
+      "japanese_specific_score": 0.07441778481006622
+    },
+    "late_chunking_metrics": {
+      "model_name": "BAAI/bge-m3",
+      "chunking_method": "late_chunking",
+      "avg_cosine_similarity": 0.0,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 0.08579111099243164,
+      "num_chunks": 1,
+      "avg_chunk_length": 278,
+      "context_preservation_score": 1.0,
+      "japanese_specific_score": 0.3372611999511719
+    },
+    "improvement_percentage": 353.1997375488281,
+    "details": {
+      "traditional_chunks": 1,
+      "late_chunking_chunks": 1,
+      "document_length": 305,
+      "queries_tested": 8
+    }
+  }
+]

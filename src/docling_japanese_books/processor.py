@@ -437,31 +437,69 @@ class DocumentProcessor:
             # Process images
             extracted_images = self._process_images(conv_result, doc_filename)
 
-            # Generate enhanced text chunks with image references
-            chunks = list(self.chunker.chunk(conv_result.document))
-            chunk_texts, chunk_metadata = self._create_enhanced_chunks(
-                chunks, extracted_images
+            # Check if we should use Late Chunking for better context preservation
+            use_late_chunking = (
+                hasattr(self.config.chunking, "use_late_chunking")
+                and self.config.chunking.use_late_chunking
             )
 
-            # Prepare document metadata
-            metadata = self._prepare_metadata(file_path, chunk_texts, extracted_images)
+            if use_late_chunking:
+                # Use Late Chunking for better Japanese text processing
+                full_text = conv_result.document.export_to_markdown()
 
-            # Store in vector database with image information
-            if chunk_texts:
-                success = self.vector_db.insert_document(
+                # Prepare document metadata
+                metadata = self._prepare_metadata(file_path, [], extracted_images)
+
+                # Use Late Chunking insertion method
+                success = self.vector_db.insert_document_with_late_chunking(
                     doc_id=doc_filename,
-                    text_chunks=chunk_texts,
+                    full_document=full_text,
                     metadata=metadata,
-                    chunk_metadata=chunk_metadata,
+                    max_chunk_length=800,  # Longer chunks for better context
                 )
+
                 if success:
                     self.logger.info(
-                        f"Stored {len(chunk_texts)} chunks in vector DB for {doc_filename}"
+                        f"Stored document using Late Chunking for {doc_filename}"
                     )
                 else:
                     self.logger.warning(
-                        f"Failed to store chunks in vector DB for {doc_filename}"
+                        f"Failed to store document with Late Chunking for {doc_filename}"
                     )
+
+                # For output formats, still use traditional chunking
+                chunks = list(self.chunker.chunk(conv_result.document))
+                chunk_texts, chunk_metadata = self._create_enhanced_chunks(
+                    chunks, extracted_images
+                )
+            else:
+                # Traditional chunking approach
+                chunks = list(self.chunker.chunk(conv_result.document))
+                chunk_texts, chunk_metadata = self._create_enhanced_chunks(
+                    chunks, extracted_images
+                )
+
+                # Prepare document metadata
+                metadata = self._prepare_metadata(
+                    file_path, chunk_texts, extracted_images
+                )
+
+                # Store in vector database with image information
+                if chunk_texts:
+                    success = self.vector_db.insert_document(
+                        doc_id=doc_filename,
+                        text_chunks=chunk_texts,
+                        metadata=metadata,
+                        chunk_metadata=chunk_metadata,
+                    )
+                    if success:
+                        self.logger.info(
+                            f"Stored {len(chunk_texts)} traditional chunks in vector DB for {doc_filename}"
+                        )
+                    else:
+                        self.logger.warning(
+                            f"Failed to store chunks in vector DB for {doc_filename}"
+                        )
 
             # Save output files
             self._save_output_formats(
