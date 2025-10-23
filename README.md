@@ -26,7 +26,7 @@ This project provides a robust, opinionated pipeline for:
 - 🖼️ **Smart Image Handling**: SHA-256 based filenames for deduplication, separate storage with metadata
 - 🗂️ **Vector Database**: Milvus Lite with enhanced schema including image metadata
 - 🤖 **LLM Ready**: BGE-M3 embeddings with Late Chunking optimization for Japanese content
-- 🧪 **Embedding Evaluation**: Comprehensive framework comparing models ([BGE-M3](https://huggingface.co/BAAI/bge-m3), [Snowflake Arctic](https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0), [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2))
+- 🧪 **Embedding Evaluation**: Real-document testing with automatic PDF processing from `test_docs/` ([BGE-M3](https://huggingface.co/BAAI/bge-m3), [Snowflake Arctic](https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0), [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2))
 - ⚡ **Batch Processing**: Efficient processing with Rich progress tracking
 - 🎯 **Zero Configuration**: Hardcoded settings optimized for Japanese documents
 - 📊 **Rich CLI**: Beautiful progress bars and comprehensive commands
@@ -165,8 +165,9 @@ uv run docling-japanese-books search "query text" [--limit 10] [--verbose]
 # Evaluate embedding models for Japanese content
 uv run docling-japanese-books evaluate [--output results.json] [--documents docs.json] [--verbose]
 
-# Compare BGE-M3 vs Snowflake Arctic Embed (comprehensive 3-model evaluation)
+# Compare BGE-M3 vs Snowflake Arctic Embed (uses all PDFs in test_docs/)
 # Models: BGE-M3, Snowflake Arctic Embed L v2.0, all-MiniLM-L6-v2
+# Automatically processes real Japanese documents with Docling
 uv run python scripts/evaluate_snowflake_arctic.py
 
 # Configure database connection (local or cloud)
@@ -214,11 +215,14 @@ uv run docling-japanese-books download --verbose
 
 ### Evaluating Embedding Performance
 
-The evaluation system compares traditional chunking with Late Chunking for Japanese text processing:
+The evaluation system compares embedding models using real Japanese documents from the `test_docs/` directory:
 
 ```bash
-# Run evaluation with sample Japanese documents
+# Run BGE-M3 vs traditional evaluation with real documents
 uv run docling-japanese-books evaluate
+
+# Compare BGE-M3, Snowflake Arctic, and traditional models (uses all PDFs in test_docs/)
+uv run python scripts/evaluate_snowflake_arctic.py
 
 # Use custom documents for evaluation
 uv run docling-japanese-books evaluate --documents my_japanese_docs.json
@@ -227,12 +231,18 @@ uv run docling-japanese-books evaluate --documents my_japanese_docs.json
 uv run docling-japanese-books evaluate --output detailed_results.json --verbose
 ```
 
+**Current Test Documents (Automatically Processed):**
+- 薙刀体操法_860420_0001.pdf - Naginata exercise methods
+- 広島県武術家伝_1939799_0001.pdf - Hiroshima martial arts biography  
+- toyoma-okugi1956.pdf - Toyama secret techniques (1956)
+
 **Evaluation Metrics:**
 
-- Japanese query performance (8 test queries)
+- Japanese query performance (8 test queries on real content)
 - Context preservation between chunks
-- Processing speed comparison
-- Cosine similarity analysis
+- Processing speed comparison with document extraction
+- Cosine similarity analysis on authentic Japanese texts
+- Cross-document consistency testing
 
 **Sample Results:**
 
@@ -262,34 +272,39 @@ We've evaluated the highly-praised **Snowflake Arctic Embed L v2.0** model ([`Sn
 uv run python scripts/evaluate_snowflake_arctic.py
 ```
 
-**Comprehensive Comparison Results:**
+**Comprehensive Comparison Results (Real Japanese Documents):**
+
+The evaluation uses actual Japanese martial arts documents from `test_docs/`:
+- 薙刀体操法_860420_0001.pdf (Naginata exercise methods)
+- 広島県武術家伝_1939799_0001.pdf (Hiroshima martial arts biography)
+- toyoma-okugi1956.pdf (Toyama secret techniques, 1956)
 
 ```
 📊 JAPANESE-SPECIFIC QUERY PERFORMANCE:
-Traditional (all-MiniLM-L6-v2): 0.343 ± 0.158
-BGE-M3 (Late Chunking):        0.412 ± 0.033
-Snowflake Arctic Embed L v2.0: 0.200 ± 0.030
+Traditional (all-MiniLM-L6-v2): 0.154 ± 0.056
+BGE-M3 (Late Chunking):        0.430 ± 0.010
+Snowflake Arctic Embed L v2.0: 0.245 ± 0.056
 
 📈 IMPROVEMENT OVER TRADITIONAL:
-BGE-M3 improvement:      63.2% ± 99.3%
-Snowflake improvement:   -22.9% ± 44.3%
+BGE-M3 improvement:      216.6% ± 103.1%
+Snowflake improvement:   91.4% ± 89.0%
 
 🏆 MODEL WINS (best performance per document):
-Traditional ([all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)): 2/3 documents (66.7%)
-BGE-M3 (Late Chunking): 1/3 documents (33.3%)
+BGE-M3 (Late Chunking): 3/3 documents (100.0%)
 
 🚀 BEST INDIVIDUAL PERFORMANCES:
-BGE-M3 best:      research_paper (+203.5%)
-Snowflake best:   research_paper (+39.7%)
+BGE-M3 best:      toyoma-okugi1956 (+326.8%)
+Snowflake best:   toyoma-okugi1956 (+185.0%)
 ```
 
 **Key Findings:**
 
-- ✅ **BGE-M3 + Late Chunking** remains optimal for Japanese documents
-- 🎯 **Exceptional performance** on complex research content (+203.5% improvement)
-- 📚 **Snowflake Arctic** underperformed on Japanese-specific tasks (-22.9% vs traditional)
-- 🌐 **Multilingual advantage**: BGE-M3's Japanese optimization shows clear benefits
-- 💡 **Context preservation**: Late Chunking strategy proves crucial for technical content
+- ✅ **BGE-M3 + Late Chunking** dominates with 100% wins on real Japanese documents
+- 🎯 **Exceptional performance** on historical martial arts content (+326.8% best improvement)
+- 📚 **Snowflake Arctic** shows improvement over traditional (+91.4% average) but still behind BGE-M3
+- 🌐 **Multilingual advantage**: BGE-M3's Japanese optimization shows clear benefits (+216.6% average)
+- 💡 **Context preservation**: Late Chunking strategy proves crucial for historical Japanese texts
+- 📜 **Dynamic evaluation**: New documents added to `test_docs/` are automatically included
 
 **Recommendation**: Continue with **BGE-M3 + Late Chunking** for Japanese document processing workflows.
 
@@ -397,6 +412,11 @@ uv run docling-japanese-books config-db --help
     └── [doc_name]/   # SHA-256 named image files
         ├── abc123.png
         └── def456.jpg
+
+# Evaluation Results (generated)
+├── embedding_evaluation_results.json       # BGE-M3 vs traditional comparison
+├── embedding_evaluation_snowflake_results.json  # 3-model comprehensive comparison
+└── embedding_evaluation_snowflake.log      # Detailed evaluation logs
 ```
 
 ## Testing
@@ -557,8 +577,8 @@ The system processes documents through this workflow:
 
 ### Test Data
 
-- ✅ **Japanese Test Document**: `toyoma-okugi1956.pdf` (Japanese karate book from 1956)
-- ✅ **Multiple Formats**: HTML, Markdown test documents included
+- `toyoma-okugi1956.pdf` (Japanese karate book from 1956)　
+- `広島県武術家伝_1939799_0001.pdf` from　https://dl.ndl.go.jp/pid/1939799/1/5
 
 ## Development Roadmap
 
@@ -966,7 +986,7 @@ docling-japanese-books/
 │   ├── vector_db.py        # Milvus operations with enhanced metadata
 │   ├── query.py           # Search interface with image indicators
 │   └── downloader.py      # Model download with progress tracking
-├── test_docs/             # Sample documents including Japanese PDF
+├── test_docs/             # Real Japanese PDFs for evaluation (martial arts texts)
 ├── .models/               # Downloaded models (excluded from git)
 ├── .database/             # Milvus Lite database (excluded from git)
 └── output/                # Processing outputs (excluded from git)

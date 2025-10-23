@@ -393,7 +393,11 @@ def search(query_text: str, limit: int, verbose: bool) -> None:
     help="Enable verbose logging",
 )
 def evaluate(output: Path, documents: Path, verbose: bool) -> None:
-    """Evaluate and compare embedding approaches for Japanese documents."""
+    """Evaluate and compare BGE-M3 Late Chunking vs traditional embedding approaches.
+    
+    For comprehensive 3-model comparison including Snowflake Arctic Embed,
+    use: python scripts/evaluate_snowflake_arctic.py
+    """
     import json
 
     from .embedding_evaluation import (

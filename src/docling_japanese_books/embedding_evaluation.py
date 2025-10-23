@@ -2,7 +2,16 @@
 Embedding evaluation framework for Japanese document processing.
 
 This module provides tools to benchmark embedding models and chunking strategies,
-particularly comparing traditional chunking with Late Chunking for Japanese text.
+particularly comparing BGE-M3 with Late Chunking against Snowflake Arctic Embed
+and traditional models using real Japanese documents.
+
+Supports evaluation of:
+- BGE-M3 with Late Chunking (https://huggingface.co/BAAI/bge-m3)
+- Snowflake Arctic Embed L v2.0 (https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0)
+- Traditional all-MiniLM-L6-v2 (https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
+
+The evaluation uses real Japanese documents processed through Docling for authentic
+performance measurement on historical martial arts texts and technical content.
 """
 
 import json
