@@ -6,10 +6,13 @@ This document compares vector database providers for the **docling-japanese-book
 
 ### Project Configuration
 
-- **Embedding Model**: BAAI/bge-m3 (1024 dimensions)
+- **Embedding Model**: BAAI/bge-m3 (1024 dimensions) - _Current default_
+- **Alternative Models**: Snowflake Arctic Embed L v2.0 (under evaluation)
 - **Target Content**: 80-page Japanese books
 - **Chunking Strategy**: Late Chunking with ~400 characters per chunk
 - **Overlap**: 10% between chunks for context preservation
+
+> **Note**: The project includes comprehensive embedding evaluation framework to compare BGE-M3 against Snowflake Arctic Embed L v2.0. Run `uv run evaluate-snowflake-arctic` to benchmark both models on Japanese content.
 
 ### Storage Calculations per Book
 

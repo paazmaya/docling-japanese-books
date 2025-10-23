@@ -46,6 +46,7 @@ class LateChunkingProcessor:
         """Load the embedding model and tokenizer."""
         if self.model is None:
             logger.info(f"Loading model: {self.model_name}")
+            # Model: https://huggingface.co/BAAI/bge-m3
 
             # BGE-M3 uses FlagEmbedding under the hood
             try:

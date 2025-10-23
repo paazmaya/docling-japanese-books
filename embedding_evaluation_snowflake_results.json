@@ -1,0 +1,140 @@
+[
+  {
+    "document_id": "technical_manual",
+    "traditional_metrics": {
+      "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "chunking_method": "traditional",
+      "avg_cosine_similarity": 0.19541050493717194,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 0.422698974609375,
+      "num_chunks": 2,
+      "avg_chunk_length": 398,
+      "context_preservation_score": 0.19541050493717194,
+      "japanese_specific_score": 0.5179104804992676
+    },
+    "late_chunking_metrics": {
+      "model_name": "BAAI/bge-m3",
+      "chunking_method": "late_chunking",
+      "avg_cosine_similarity": 1.0000001192092896,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 3.2066378593444824,
+      "num_chunks": 2,
+      "avg_chunk_length": 398,
+      "context_preservation_score": 1.0000001192092896,
+      "japanese_specific_score": 0.452490895986557
+    },
+    "snowflake_arctic_metrics": {
+      "model_name": "Snowflake/snowflake-arctic-embed-l-v2.0",
+      "chunking_method": "snowflake_arctic",
+      "avg_cosine_similarity": 0.553287148475647,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 1.883995771408081,
+      "num_chunks": 2,
+      "avg_chunk_length": 398,
+      "context_preservation_score": 0.553287148475647,
+      "japanese_specific_score": 0.2406047284603119
+    },
+    "bge_m3_improvement": -12.63144588470459,
+    "snowflake_improvement": -53.54317855834961,
+    "best_model": "Traditional (all-MiniLM-L6-v2)",
+    "details": {
+      "traditional_chunks": 2,
+      "late_chunking_chunks": 2,
+      "snowflake_chunks": 2,
+      "document_length": 810,
+      "queries_tested": 8
+    }
+  },
+  {
+    "document_id": "business_report",
+    "traditional_metrics": {
+      "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "chunking_method": "traditional",
+      "avg_cosine_similarity": 0.4692908823490143,
+      "std_cosine_similarity": 0.11431926488876343,
+      "processing_time": 0.07002902030944824,
+      "num_chunks": 3,
+      "avg_chunk_length": 257,
+      "context_preservation_score": 0.5497215986251831,
+      "japanese_specific_score": 0.37602001428604126
+    },
+    "late_chunking_metrics": {
+      "model_name": "BAAI/bge-m3",
+      "chunking_method": "late_chunking",
+      "avg_cosine_similarity": 1.0,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 0.22320818901062012,
+      "num_chunks": 3,
+      "avg_chunk_length": 257,
+      "context_preservation_score": 1.0,
+      "japanese_specific_score": 0.371101438999176
+    },
+    "snowflake_arctic_metrics": {
+      "model_name": "Snowflake/snowflake-arctic-embed-l-v2.0",
+      "chunking_method": "snowflake_arctic",
+      "avg_cosine_similarity": 0.4925532341003418,
+      "std_cosine_similarity": 0.03372751921415329,
+      "processing_time": 0.5264430046081543,
+      "num_chunks": 3,
+      "avg_chunk_length": 257,
+      "context_preservation_score": 0.5161643028259277,
+      "japanese_specific_score": 0.16952309012413025
+    },
+    "bge_m3_improvement": -1.3080620765686035,
+    "snowflake_improvement": -54.91646957397461,
+    "best_model": "Traditional (all-MiniLM-L6-v2)",
+    "details": {
+      "traditional_chunks": 3,
+      "late_chunking_chunks": 3,
+      "snowflake_chunks": 3,
+      "document_length": 787,
+      "queries_tested": 8
+    }
+  },
+  {
+    "document_id": "research_paper",
+    "traditional_metrics": {
+      "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "chunking_method": "traditional",
+      "avg_cosine_similarity": 0.41884148120880127,
+      "std_cosine_similarity": 0.1898335963487625,
+      "processing_time": 0.0871737003326416,
+      "num_chunks": 4,
+      "avg_chunk_length": 405,
+      "context_preservation_score": 0.4895552098751068,
+      "japanese_specific_score": 0.13594695925712585
+    },
+    "late_chunking_metrics": {
+      "model_name": "BAAI/bge-m3",
+      "chunking_method": "late_chunking",
+      "avg_cosine_similarity": 1.0,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 0.389509916305542,
+      "num_chunks": 4,
+      "avg_chunk_length": 406,
+      "context_preservation_score": 1.0,
+      "japanese_specific_score": 0.41259828209877014
+    },
+    "snowflake_arctic_metrics": {
+      "model_name": "Snowflake/snowflake-arctic-embed-l-v2.0",
+      "chunking_method": "snowflake_arctic",
+      "avg_cosine_similarity": 0.542580246925354,
+      "std_cosine_similarity": 0.1504259705543518,
+      "processing_time": 0.399691104888916,
+      "num_chunks": 4,
+      "avg_chunk_length": 405,
+      "context_preservation_score": 0.604875922203064,
+      "japanese_specific_score": 0.18990802764892578
+    },
+    "bge_m3_improvement": 203.4994659423828,
+    "snowflake_improvement": 39.69273376464844,
+    "best_model": "BGE-M3 (Late Chunking)",
+    "details": {
+      "traditional_chunks": 4,
+      "late_chunking_chunks": 4,
+      "snowflake_chunks": 4,
+      "document_length": 1651,
+      "queries_tested": 8
+    }
+  }
+]

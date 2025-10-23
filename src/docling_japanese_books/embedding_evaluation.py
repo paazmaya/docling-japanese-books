@@ -41,7 +41,10 @@ class EvaluationResults:
     document_id: str
     traditional_metrics: EvaluationMetrics
     late_chunking_metrics: EvaluationMetrics
-    improvement_percentage: float = 0.0
+    snowflake_arctic_metrics: EvaluationMetrics
+    bge_m3_improvement: float = 0.0
+    snowflake_improvement: float = 0.0
+    best_model: str = ""
     details: dict = field(default_factory=dict)
 
 
@@ -68,6 +71,7 @@ class EmbeddingEvaluator:
         # Initialize processors
         self.late_chunking = None
         self.traditional_model = None
+        self.snowflake_arctic_model = None
 
     def load_models(self):
         """Load embedding models for comparison."""
@@ -78,12 +82,24 @@ class EmbeddingEvaluator:
         if self.traditional_model is None:
             self.logger.info("Loading traditional sentence-transformers model...")
             # Use the old model for comparison
+            # Model: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
             cache_folder = (
                 Path(self.config.docling.artifacts_path).resolve()
                 / "embeddings_comparison"
             )
             self.traditional_model = SentenceTransformer(
                 "sentence-transformers/all-MiniLM-L6-v2", cache_folder=str(cache_folder)
+            )
+
+        if self.snowflake_arctic_model is None:
+            self.logger.info("Loading Snowflake Arctic Embed L v2.0...")
+            # Model: https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0
+            cache_folder = (
+                Path(self.config.docling.artifacts_path).resolve()
+                / "embeddings_comparison"
+            )
+            self.snowflake_arctic_model = SentenceTransformer(
+                "Snowflake/snowflake-arctic-embed-l-v2.0", cache_folder=str(cache_folder)
             )
 
     def simple_traditional_chunking(
@@ -144,7 +160,7 @@ class EmbeddingEvaluator:
         self,
         chunks: list[str],
         embeddings: list[np.ndarray],
-        use_bge_model: bool = False,
+        model_type: str = "traditional",
     ) -> float:
         """Evaluate performance on Japanese-specific queries."""
         similarities = []
@@ -154,12 +170,15 @@ class EmbeddingEvaluator:
 
         for query in self.japanese_test_queries:
             # Get query embedding using the same model as chunks to ensure compatibility
-            if use_bge_model:
+            if model_type == "bge_m3":
                 # Use BGE-M3 for query (matches Late Chunking embeddings)
                 self.late_chunking.load_model()
                 query_emb = self.late_chunking.model.encode(
                     [query], return_dense=True, return_sparse=False
                 )["dense_vecs"][0]
+            elif model_type == "snowflake_arctic":
+                # Use Snowflake Arctic for query
+                query_emb = self.snowflake_arctic_model.encode(query)
             else:
                 # Use sentence transformers (matches traditional embeddings)
                 query_emb = self.traditional_model.encode(query)
@@ -175,14 +194,24 @@ class EmbeddingEvaluator:
 
         return np.mean(similarities) if similarities else 0.0
 
+    def _get_model_type(self, chunking_method: str) -> str:
+        """Get model type based on chunking method."""
+        if chunking_method == "late_chunking":
+            return "bge_m3"
+        elif chunking_method == "snowflake_arctic":
+            return "snowflake_arctic"
+        else:
+            return "traditional"
+
     def evaluate_document(self, document: str, doc_id: str) -> EvaluationResults:
-        """Evaluate a document using both traditional and Late Chunking approaches."""
+        """Evaluate a document using traditional, Late Chunking, and Snowflake Arctic approaches."""
         self.load_models()
         self.logger.info(f"Evaluating document: {doc_id}")
 
-        # Process with both approaches
+        # Process with all three approaches
         traditional_data = self._evaluate_traditional_approach(document)
         late_chunking_data = self._evaluate_late_chunking_approach(document)
+        snowflake_data = self._evaluate_snowflake_arctic_approach(document)
 
         # Calculate metrics
         traditional_metrics = self._calculate_metrics(
@@ -199,19 +228,38 @@ class EmbeddingEvaluator:
             **late_chunking_data,
         )
 
-        # Calculate improvement
-        improvement = self._calculate_improvement(
+        snowflake_arctic_metrics = self._calculate_metrics(
+            model_name="Snowflake/snowflake-arctic-embed-l-v2.0",
+            chunking_method="snowflake_arctic",
+            document=document,
+            **snowflake_data,
+        )
+
+        # Calculate improvements
+        bge_improvement = self._calculate_improvement(
             traditional_metrics, late_chunking_metrics
+        )
+        snowflake_improvement = self._calculate_improvement(
+            traditional_metrics, snowflake_arctic_metrics
+        )
+
+        # Determine best model
+        best_model = self._determine_best_model(
+            traditional_metrics, late_chunking_metrics, snowflake_arctic_metrics
         )
 
         return EvaluationResults(
             document_id=doc_id,
             traditional_metrics=traditional_metrics,
             late_chunking_metrics=late_chunking_metrics,
-            improvement_percentage=improvement,
+            snowflake_arctic_metrics=snowflake_arctic_metrics,
+            bge_m3_improvement=bge_improvement,
+            snowflake_improvement=snowflake_improvement,
+            best_model=best_model,
             details={
                 "traditional_chunks": len(traditional_data["chunks"]),
                 "late_chunking_chunks": len(late_chunking_data["chunks"]),
+                "snowflake_chunks": len(snowflake_data["chunks"]),
                 "document_length": len(document),
                 "queries_tested": len(self.japanese_test_queries),
             },
@@ -247,6 +295,19 @@ class EmbeddingEvaluator:
             "processing_time": processing_time,
         }
 
+    def _evaluate_snowflake_arctic_approach(self, document: str) -> dict:
+        """Evaluate Snowflake Arctic approach with traditional chunking."""
+        start_time = time.time()
+        chunks = self.simple_traditional_chunking(document)
+        embeddings = [self.snowflake_arctic_model.encode(chunk) for chunk in chunks]
+        processing_time = time.time() - start_time
+
+        return {
+            "chunks": chunks,
+            "embeddings": embeddings,
+            "processing_time": processing_time,
+        }
+
     def _calculate_metrics(
         self,
         model_name: str,
@@ -277,25 +338,39 @@ class EmbeddingEvaluator:
                 document, chunks, embeddings
             ),
             japanese_specific_score=self.evaluate_japanese_specificity(
-                chunks, embeddings, use_bge_model=(chunking_method == "late_chunking")
+                chunks, embeddings, model_type=self._get_model_type(chunking_method)
             ),
         )
 
     def _calculate_improvement(
-        self, traditional: EvaluationMetrics, late_chunking: EvaluationMetrics
+        self, baseline: EvaluationMetrics, comparison: EvaluationMetrics
     ) -> float:
         """Calculate improvement percentage."""
-        if traditional.japanese_specific_score <= 0:
+        if baseline.japanese_specific_score <= 0:
             return 0.0
 
         return (
-            (
-                late_chunking.japanese_specific_score
-                - traditional.japanese_specific_score
-            )
-            / traditional.japanese_specific_score
+            (comparison.japanese_specific_score - baseline.japanese_specific_score)
+            / baseline.japanese_specific_score
             * 100
         )
+
+    def _determine_best_model(
+        self,
+        traditional: EvaluationMetrics,
+        bge_m3: EvaluationMetrics,
+        snowflake: EvaluationMetrics,
+    ) -> str:
+        """Determine which model performed best based on Japanese-specific score."""
+        scores = [
+            (traditional.japanese_specific_score, "Traditional (all-MiniLM-L6-v2)"),
+            (bge_m3.japanese_specific_score, "BGE-M3 (Late Chunking)"),
+            (snowflake.japanese_specific_score, "Snowflake Arctic Embed L v2.0"),
+        ]
+
+        # Sort by score (descending) and return the best model name
+        _, best_model = max(scores, key=lambda x: x[0])
+        return best_model
 
     def run_comparison_study(
         self, documents: dict[str, str], output_path: Optional[Path] = None
@@ -312,10 +387,9 @@ class EmbeddingEvaluator:
 
                 self.logger.info(
                     f"Document {doc_id}: "
-                    f"Japanese score improvement: {result.improvement_percentage:.1f}%, "
-                    f"Context preservation: "
-                    f"Traditional {result.traditional_metrics.context_preservation_score:.3f} -> "
-                    f"Late Chunking {result.late_chunking_metrics.context_preservation_score:.3f}"
+                    f"BGE-M3 improvement: {result.bge_m3_improvement:.1f}%, "
+                    f"Snowflake improvement: {result.snowflake_improvement:.1f}%, "
+                    f"Best model: {result.best_model}"
                 )
 
             except Exception as e:
@@ -360,7 +434,10 @@ class EmbeddingEvaluator:
                 "document_id": result.document_id,
                 "traditional_metrics": result.traditional_metrics.__dict__,
                 "late_chunking_metrics": result.late_chunking_metrics.__dict__,
-                "improvement_percentage": result.improvement_percentage,
+                "snowflake_arctic_metrics": result.snowflake_arctic_metrics.__dict__,
+                "bge_m3_improvement": result.bge_m3_improvement,
+                "snowflake_improvement": result.snowflake_improvement,
+                "best_model": result.best_model,
                 "details": result.details,
             }
             # Convert to JSON serializable format
@@ -377,52 +454,77 @@ class EmbeddingEvaluator:
             self.logger.warning("No results to summarize")
             return
 
-        improvements = [r.improvement_percentage for r in results]
-        context_improvements = [
-            r.late_chunking_metrics.context_preservation_score
-            - r.traditional_metrics.context_preservation_score
-            for r in results
-        ]
+        bge_improvements = [r.bge_m3_improvement for r in results]
+        snowflake_improvements = [r.snowflake_improvement for r in results]
+        
         japanese_scores_traditional = [
             r.traditional_metrics.japanese_specific_score for r in results
         ]
-        japanese_scores_late = [
+        japanese_scores_bge = [
             r.late_chunking_metrics.japanese_specific_score for r in results
         ]
+        japanese_scores_snowflake = [
+            r.snowflake_arctic_metrics.japanese_specific_score for r in results
+        ]
 
-        print("\n" + "=" * 60)
-        print("EMBEDDING EVALUATION SUMMARY")
-        print("=" * 60)
+        # Count best models
+        model_wins = {}
+        for result in results:
+            model = result.best_model
+            model_wins[model] = model_wins.get(model, 0) + 1
+
+        print("\n" + "=" * 80)
+        print("COMPREHENSIVE EMBEDDING EVALUATION SUMMARY")
+        print("=" * 80)
         print(f"Documents evaluated: {len(results)}")
-        print(f"Average improvement in Japanese queries: {np.mean(improvements):.1f}%")
-        print(
-            f"Average context preservation improvement: {np.mean(context_improvements):.3f}"
-        )
-        print(
-            f"Traditional Japanese score: {np.mean(japanese_scores_traditional):.3f} ± {np.std(japanese_scores_traditional):.3f}"
-        )
-        print(
-            f"Late Chunking Japanese score: {np.mean(japanese_scores_late):.3f} ± {np.std(japanese_scores_late):.3f}"
-        )
+        print()
+        print("📊 JAPANESE-SPECIFIC QUERY PERFORMANCE:")
+        print(f"Traditional (all-MiniLM-L6-v2): {np.mean(japanese_scores_traditional):.3f} ± {np.std(japanese_scores_traditional):.3f}")
+        print(f"BGE-M3 (Late Chunking):        {np.mean(japanese_scores_bge):.3f} ± {np.std(japanese_scores_bge):.3f}")
+        print(f"Snowflake Arctic Embed L v2.0: {np.mean(japanese_scores_snowflake):.3f} ± {np.std(japanese_scores_snowflake):.3f}")
+        print()
+        print("📈 IMPROVEMENT OVER TRADITIONAL:")
+        print(f"BGE-M3 improvement:      {np.mean(bge_improvements):.1f}% ± {np.std(bge_improvements):.1f}%")
+        print(f"Snowflake improvement:   {np.mean(snowflake_improvements):.1f}% ± {np.std(snowflake_improvements):.1f}%")
+        print()
+        print("🏆 MODEL WINS (best performance per document):")
+        for model, wins in sorted(model_wins.items(), key=lambda x: x[1], reverse=True):
+            print(f"{model}: {wins}/{len(results)} documents ({wins/len(results)*100:.1f}%)")
 
-        best_improvement = max(results, key=lambda x: x.improvement_percentage)
-        print(
-            f"\nBest improvement: {best_improvement.document_id} (+{best_improvement.improvement_percentage:.1f}%)"
-        )
+        # Best performing model overall
+        best_bge = max(results, key=lambda x: x.bge_m3_improvement)
+        best_snowflake = max(results, key=lambda x: x.snowflake_improvement)
+        
+        print()
+        print("🚀 BEST INDIVIDUAL PERFORMANCES:")
+        print(f"BGE-M3 best:      {best_bge.document_id} (+{best_bge.bge_m3_improvement:.1f}%)")
+        print(f"Snowflake best:   {best_snowflake.document_id} (+{best_snowflake.snowflake_improvement:.1f}%)")
 
-        print("\nRecommendation:")
-        if np.mean(improvements) > 5:
-            print(
-                "✅ Late Chunking shows significant improvement - RECOMMENDED for production"
-            )
-        elif np.mean(improvements) > 0:
-            print(
-                "⚠️  Late Chunking shows modest improvement - consider for Japanese-heavy workflows"
-            )
+        print()
+        print("💡 RECOMMENDATIONS:")
+        
+        avg_bge = np.mean(bge_improvements)
+        avg_snowflake = np.mean(snowflake_improvements)
+        
+        if avg_snowflake > avg_bge and avg_snowflake > 5:
+            print("✅ Snowflake Arctic Embed L v2.0 shows BEST performance - RECOMMENDED")
+        elif avg_bge > 5:
+            print("✅ BGE-M3 with Late Chunking shows strong performance - RECOMMENDED")
+        elif max(avg_bge, avg_snowflake) > 0:
+            winner = "Snowflake Arctic" if avg_snowflake > avg_bge else "BGE-M3"
+            print(f"⚠️  {winner} shows modest improvement - consider for Japanese-heavy workflows")
         else:
-            print(
-                "❌ Late Chunking does not show improvement - stick with traditional approach"
-            )
+            print("❌ Advanced models do not show significant improvement")
+            
+        print()
+        print("🔄 NEXT STEPS:")
+        if avg_snowflake > avg_bge:
+            print("• Consider implementing Snowflake Arctic Embed L v2.0 as primary embedding model")
+            print("• Test on larger document collections to validate performance")
+            print("• Update vector database schema for optimal Snowflake embedding dimensions")
+        else:
+            print("• Current BGE-M3 implementation appears optimal")
+            print("• Consider hybrid approach: BGE-M3 for chunking, Snowflake for specific use cases")
 
         print("=" * 60)
 
