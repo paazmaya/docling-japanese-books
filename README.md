@@ -11,6 +11,7 @@ See the amount of emojis used in this documentation? Sure, this has initially be
 ## Overview
 
 This project provides a robust, opinionated pipeline for:
+
 - **Document Ingestion**: Batch processing of documents in various formats (PDF, DOCX, HTML, etc.)
 - **Content Extraction**: Using Docling's advanced document understanding capabilities with IBM Granite Vision 3.3 2B
 - **Image Processing**: Extract and annotate images with SHA-256 hashing for deduplication
@@ -39,32 +40,32 @@ flowchart TD
     B -->|PDF, DOCX, PPTX| C[🔧 Docling Processing]
     B -->|HTML, MD, TXT| C
     B -->|Images| C
-    
+
     C --> D[📝 Text Extraction]
     C --> E[🖼️ Image Extraction]
     C --> F[📊 Table Extraction]
-    
+
     D --> G[🧠 IBM Granite Vision 3.3B]
     E --> H[🔐 SHA-256 Hashing]
     F --> D
-    
+
     G --> I[📖 Japanese Text Analysis]
     H --> J[🗂️ Deduplicated Storage]
-    
+
     I --> K[✂️ Hierarchical Chunking]
     J --> L[💾 Image Repository]
-    
+
     K --> M[🧮 Sentence Embeddings]
     L --> N[📋 Image Metadata]
-    
+
     M --> O[(🔍 Milvus Vector DB)]
     N --> O
-    
+
     O --> P[📄 JSON Export]
     O --> Q[📝 Markdown Export]
     O --> R[📦 JSONL Chunks]
     O --> S[🔍 Vector Search]
-    
+
     style A fill:#e1f5fe
     style O fill:#f3e5f5
     style G fill:#fff3e0
@@ -136,6 +137,7 @@ All models are downloaded to `.models/` directory in the project root for reuse.
 **Models**: Cached in `.models/` directory (excluded from git)
 
 Benefits of local storage:
+
 - ✅ **Self-contained**: Everything stays in project directory
 - ✅ **Version control friendly**: Database and models excluded from git
 - ✅ **Easy backup**: Copy entire project directory
@@ -161,6 +163,9 @@ uv run docling-japanese-books search "query text" [--limit 10] [--verbose]
 
 # Evaluate embedding models for Japanese content
 uv run docling-japanese-books evaluate [--output results.json] [--documents docs.json] [--verbose]
+
+# Configure database connection (local or cloud)
+uv run docling-japanese-books config-db [--mode local|cloud] [--test-connection] [--verbose]
 ```
 
 ### Processing Documents
@@ -218,12 +223,14 @@ uv run docling-japanese-books evaluate --output detailed_results.json --verbose
 ```
 
 **Evaluation Metrics:**
+
 - Japanese query performance (8 test queries)
-- Context preservation between chunks  
+- Context preservation between chunks
 - Processing speed comparison
 - Cosine similarity analysis
 
 **Sample Results:**
+
 ```
 ============================================================
 EMBEDDING EVALUATION SUMMARY
@@ -246,8 +253,9 @@ Recommendation:
 This tool uses hardcoded configurations optimized for Japanese document processing:
 
 ### Document Processing (Docling)
+
 - **Supported formats**: PDF, DOCX, PPTX, HTML, Markdown, TXT, Images
-- **Max file size**: 100MB per document  
+- **Max file size**: 100MB per document
 - **Max pages**: 1000 pages per document
 - **OCR**: Enabled by default (auto-detects best engine)
 - **Table extraction**: Enabled with cell matching
@@ -255,16 +263,18 @@ This tool uses hardcoded configurations optimized for Japanese document processi
 - **Image processing**: 2x scale, extract and annotate separately
 
 ### Vision Model Settings
+
 - **Model**: `ibm-granite/granite-vision-3.3-2b`
 - **Prompt**: Optimized for Japanese documents
   ```
-  "Describe this image from a Japanese document. Focus on any Japanese text, 
+  "Describe this image from a Japanese document. Focus on any Japanese text,
    illustrations, diagrams, or cultural elements. Be detailed and specific."
   ```
 - **Image storage**: SHA-256 hash filenames in `./output/images/[document]/`
 - **Metadata**: Includes image hash references in vector database
 
 ### Chunking & Tokenization
+
 - **Tokenizer**: `ibm-granite/granite-docling-258M` (document-aware)
 - **Embeddings**: `BAAI/bge-m3` (1024 dimensions, multilingual with Japanese support)
 - **Strategy**: Late Chunking for improved context preservation
@@ -275,6 +285,7 @@ This tool uses hardcoded configurations optimized for Japanese document processi
 - **Image integration**: Text chunks include references to extracted images
 
 #### 🚀 **Late Chunking Optimization**
+
 Inspired by [Milvus research](https://milvus.io/blog/smarter-retrieval-for-rag-late-chunking-with-jina-embeddings-v2-and-milvus.md), we implemented Late Chunking for superior context preservation:
 
 1. **Embed First**: Process full document with global context
@@ -282,15 +293,19 @@ Inspired by [Milvus research](https://milvus.io/blog/smarter-retrieval-for-rag-l
 3. **Japanese Optimized**: BGE-M3 model with multilingual training
 
 **Performance Results** (tested on Japanese documents):
+
 - 📈 **199.7% average improvement** in Japanese query matching
 - 🎯 Best improvement: **+353.2%** on technical documentation
 - 🧠 Context preservation: Maintains cross-sentence relationships
 - 🌐 Multilingual: Superior handling of Japanese grammar and cultural context
 
-### Vector Database (Milvus Lite)
-- **Database**: `.database/docling_documents.db` (local)
+### Vector Database (Milvus/Zilliz Cloud)
+
+- **Deployment Options**:
+  - 🏠 **Local**: Milvus Lite (`.database/docling_documents.db`)
+  - ☁️ **Cloud**: Zilliz Cloud (fully managed, scalable)
 - **Collection**: `docling_japanese_books`
-- **Embedding Dimension**: 1024 (upgraded for BGE-M3)
+- **Embedding Dimension**: 1024 (BGE-M3 optimized)
 - **Similarity Metric**: Inner Product (cosine similarity)
 - **Enhanced Schema**: Includes image metadata fields
   - `image_hashes`: SHA-256 hashes of images in chunk
@@ -298,7 +313,36 @@ Inspired by [Milvus research](https://milvus.io/blog/smarter-retrieval-for-rag-l
   - `chunk_metadata`: Enhanced with image references
   - `chunking_method`: Tracks "traditional" vs "late_chunking"
 
+#### 🌐 **Cloud Database Support**
+
+Configure Zilliz Cloud for production-scale deployments:
+
+```bash
+# Set environment variables
+export MILVUS_DEPLOYMENT_MODE=cloud
+export ZILLIZ_CLOUD_URI=https://in03-<cluster-id>.serverless.gcp-us-west1.cloud.zilliz.com
+export ZILLIZ_API_KEY=your_api_key_here
+export ZILLIZ_CLUSTER_ID=your_cluster_id
+
+# Test cloud connection
+uv run docling-japanese-books config-db --test-connection
+
+# View configuration help
+uv run docling-japanese-books config-db --help
+```
+
+**Benefits of Zilliz Cloud:**
+
+- 🚀 **Auto-scaling**: Handles growing document collections
+- 🔒 **Enterprise Security**: Built-in authentication and encryption
+- 📊 **Monitoring**: Advanced analytics and performance insights
+- 🌍 **Global Access**: Multi-region deployment options
+- 💾 **Backup & Recovery**: Automated data protection
+
+**Setup Guide:** [Zilliz Cloud Data Import](https://docs.zilliz.com/docs/data-import)
+
 ### Output Structure
+
 ```
 ./output/
 ├── raw/              # JSON exports (Docling format)
@@ -317,6 +361,7 @@ This project includes comprehensive testing capabilities for both local developm
 ### Local Testing
 
 #### Quick Local Test
+
 Run the comprehensive test pipeline to verify all components:
 
 ```bash
@@ -328,6 +373,7 @@ make test
 ```
 
 #### Full Pipeline Test
+
 Test the complete pipeline with model downloads and document processing:
 
 ```bash
@@ -341,6 +387,7 @@ python test_pipeline.py
 ```
 
 #### Manual Testing with Real Documents
+
 Test with the included Japanese karate book:
 
 ```bash
@@ -360,17 +407,19 @@ uv run docling-japanese-books search "martial arts"
 The project includes two complementary CI workflows:
 
 #### Fast Tests (basic-tests.yml)
+
 - **Duration**: ~10 minutes
 - **Triggers**: All pushes and PRs
 - **Coverage**: Code quality, imports, basic functionality
-- **Features**: 
+- **Features**:
   - Ruff linting and formatting checks
   - Import validation
   - Configuration testing
   - Conditional integration tests on main branch
 
 #### Comprehensive Pipeline (test-pipeline.yml)
-- **Duration**: ~60 minutes  
+
+- **Duration**: ~60 minutes
 - **Triggers**: Push to main, manual workflow dispatch
 - **Coverage**: Full pipeline testing with models
 - **Features**:
@@ -381,8 +430,9 @@ The project includes two complementary CI workflows:
   - Resource monitoring and artifact collection
 
 #### CI Features
+
 - **Model Caching**: HuggingFace models cached between runs
-- **Artifact Collection**: Test results and logs uploaded for debugging  
+- **Artifact Collection**: Test results and logs uploaded for debugging
 - **Resource Monitoring**: Memory and disk usage tracking
 - **Comprehensive Logging**: Detailed output for troubleshooting
 - **Parallel Testing**: Multiple test scenarios run simultaneously
@@ -405,7 +455,7 @@ The test suite covers:
 ```bash
 # Development workflow
 make install       # Install dependencies
-make download      # Download models  
+make download      # Download models
 make test         # Run local tests
 make lint         # Check code quality
 make format       # Format code
@@ -423,24 +473,28 @@ make clean        # Remove temporary files
 ### ✅ Completed Features
 
 #### Core Infrastructure
+
 - ✅ **Project Setup**: Modern Python project with uv, ruff, and type hints
 - ✅ **CLI Interface**: Rich CLI with progress bars and multiple commands
 - ✅ **Configuration System**: Hardcoded settings optimized for Japanese documents
 - ✅ **Model Management**: Automatic download and caching with progress tracking
 
 #### Document Processing
+
 - ✅ **Multi-format Support**: PDF, DOCX, PPTX, HTML, Markdown, TXT, Images
 - ✅ **Docling Integration**: Full pipeline with OCR, table extraction, structure preservation
 - ✅ **Vision Models**: IBM Granite Vision 3.3 2B with Japanese-optimized prompts
 - ✅ **Image Processing**: Extract, annotate, and store with SHA-256 hashing
 
 #### Storage and Retrieval
+
 - ✅ **Vector Database**: Milvus Lite with enhanced schema for image metadata
 - ✅ **Image Storage**: Separate storage with deduplication via SHA-256 hashing
 - ✅ **Chunking**: Hierarchical chunking with image references integrated
 - ✅ **Search Interface**: Vector search with image metadata display
 
 #### Quality and Tooling
+
 - ✅ **Type Safety**: Complete type hints throughout codebase
 - ✅ **Code Quality**: Ruff linting and formatting configured
 - ✅ **Error Handling**: Comprehensive error handling with rich output
@@ -449,6 +503,7 @@ make clean        # Remove temporary files
 ### 🔄 Current Implementation Details
 
 The system processes documents through this workflow:
+
 1. **Document Conversion**: Docling converts documents with vision model analysis
 2. **Image Extraction**: Images are extracted and stored with SHA-256 filenames
 3. **Content Chunking**: Text is chunked hierarchically with image references
@@ -456,6 +511,7 @@ The system processes documents through this workflow:
 5. **Search**: Rich search interface showing both text and image information
 
 ### Test Data
+
 - ✅ **Japanese Test Document**: `toyoma-okugi1956.pdf` (Japanese karate book from 1956)
 - ✅ **Multiple Formats**: HTML, Markdown test documents included
 
@@ -464,21 +520,25 @@ The system processes documents through this workflow:
 ### 🎯 Next Steps (High Priority)
 
 #### Enhanced Processing
+
 - [ ] **Batch Processing Optimization**: Parallel processing for large document sets
 - [ ] **OCR Language Detection**: Auto-detect Japanese text for better OCR
 - [ ] **Document Validation**: Pre-processing validation and file health checks
 
-#### Advanced Features  
+#### Advanced Features
+
 - [ ] **Document Relationships**: Link related documents and detect duplicates
 - [ ] **Metadata Extraction**: Enhanced metadata from document properties
 - [ ] **Export Formats**: Additional output formats (XML, CSV, etc.)
 
 #### Performance & Scalability
+
 - [ ] **Incremental Processing**: Skip already-processed documents
 - [ ] **Memory Optimization**: Streaming processing for large files
 - [ ] **GPU Acceleration**: Optional GPU support for vision models
 
 ### 🔮 Future Enhancements (Medium Priority)
+
 - [ ] Install and configure Docling with all necessary dependencies
 - [ ] Create configuration management system (YAML/JSON configs)
 - [ ] Set up logging infrastructure with structured logging
@@ -487,6 +547,7 @@ The system processes documents through this workflow:
 - [ ] Create basic CLI interface using argparse or Click
 
 #### 1.2 Core Document Processing
+
 - [ ] Implement basic DocumentConverter wrapper class
 - [ ] Create file discovery and validation system
   - [ ] Support for recursive directory traversal
@@ -502,6 +563,7 @@ The system processes documents through this workflow:
   - [ ] Processing metadata (timestamps, versions)
 
 #### 1.3 Basic Storage Layer
+
 - [ ] Design database schema for document storage
   - [ ] Documents table (metadata, status)
   - [ ] Content table (processed text, structure)
@@ -514,6 +576,7 @@ The system processes documents through this workflow:
 ### Phase 2: Advanced Processing & Multiple Formats (Weeks 3-4)
 
 #### 2.1 Advanced Docling Features
+
 - [ ] Implement table extraction and serialization
   - [ ] Default table format handling
   - [ ] Markdown table serialization
@@ -527,6 +590,7 @@ The system processes documents through this workflow:
 - [ ] Configure pipeline options for different document types
 
 #### 2.2 Multi-format Support
+
 - [ ] Extend support beyond PDF
   - [ ] HTML document processing
   - [ ] DOCX/DOC support
@@ -538,6 +602,7 @@ The system processes documents through this workflow:
 - [ ] Create format-specific metadata extraction
 
 #### 2.3 Enhanced Storage Options
+
 - [ ] Implement PostgreSQL backend
 - [ ] Add MongoDB support for NoSQL storage
 - [ ] Create abstract database interface
@@ -548,6 +613,7 @@ The system processes documents through this workflow:
 ### Phase 3: Chunking & LLM Training Preparation (Weeks 5-6)
 
 #### 3.1 Document Chunking System
+
 - [ ] Implement HybridChunker integration
 - [ ] Add HierarchicalChunker support
 - [ ] Create tokenizer integration
@@ -559,6 +625,7 @@ The system processes documents through this workflow:
 - [ ] Create chunk quality assessment
 
 #### 3.2 Serialization Strategies
+
 - [ ] Implement multiple serialization formats
   - [ ] Markdown serialization
   - [ ] JSON structured output
@@ -571,6 +638,7 @@ The system processes documents through this workflow:
 - [ ] Create serialization configuration system
 
 #### 3.3 LLM Training Data Formats
+
 - [ ] Generate training datasets in common formats
   - [ ] Alpaca format
   - [ ] ShareGPT format
@@ -584,6 +652,7 @@ The system processes documents through this workflow:
 ### Phase 4: Vision Models & Advanced Features (Weeks 7-8)
 
 #### 4.1 Vision Model Integration
+
 - [ ] Integrate local vision models for image analysis
 - [ ] Add remote vision model support (API-based)
 - [ ] Implement image description generation
@@ -592,6 +661,7 @@ The system processes documents through this workflow:
 - [ ] Implement vision model comparison tools
 
 #### 4.2 Advanced Document Understanding
+
 - [ ] Add PII detection and obfuscation
 - [ ] Implement document classification
 - [ ] Add language detection and translation
@@ -600,6 +670,7 @@ The system processes documents through this workflow:
 - [ ] Add custom enrichment plugins
 
 #### 4.3 Performance Optimization
+
 - [ ] Implement parallel processing
   - [ ] Multi-threaded document processing
   - [ ] Asynchronous I/O operations
@@ -614,6 +685,7 @@ The system processes documents through this workflow:
 ### Phase 5: Vector Databases & RAG Preparation (Weeks 9-10)
 
 #### 5.1 Vector Database Integration
+
 - [ ] Implement vector embedding generation
 - [ ] Add support for multiple vector databases
   - [ ] Chroma
@@ -628,6 +700,7 @@ The system processes documents through this workflow:
 - [ ] Implement vector search capabilities
 
 #### 5.2 RAG Pipeline Components
+
 - [ ] Create document retrieval system
 - [ ] Implement semantic search
 - [ ] Add hybrid search (keyword + semantic)
@@ -636,6 +709,7 @@ The system processes documents through this workflow:
 - [ ] Add query expansion techniques
 
 #### 5.3 Integration with AI Frameworks
+
 - [ ] LangChain integration
 - [ ] LlamaIndex integration
 - [ ] Haystack integration
@@ -645,6 +719,7 @@ The system processes documents through this workflow:
 ### Phase 6: Production Features & Deployment (Weeks 11-12)
 
 #### 6.1 Production Readiness
+
 - [ ] Implement comprehensive error handling
 - [ ] Add circuit breaker patterns
 - [ ] Create health check endpoints
@@ -653,6 +728,7 @@ The system processes documents through this workflow:
 - [ ] Create data validation pipelines
 
 #### 6.2 API and Web Interface
+
 - [ ] Create REST API for document processing
 - [ ] Implement WebSocket for real-time updates
 - [ ] Add web-based document upload interface
@@ -661,6 +737,7 @@ The system processes documents through this workflow:
 - [ ] Add API rate limiting
 
 #### 6.3 Configuration and Deployment
+
 - [ ] Create Docker containers
 - [ ] Add Kubernetes manifests
 - [ ] Implement configuration management
@@ -671,6 +748,7 @@ The system processes documents through this workflow:
 ### Phase 7: Advanced Analytics & Machine Learning (Weeks 13-14)
 
 #### 7.1 Document Analytics
+
 - [ ] Implement document statistics and insights
 - [ ] Add content analysis and classification
 - [ ] Create document clustering algorithms
@@ -679,6 +757,7 @@ The system processes documents through this workflow:
 - [ ] Create visualization dashboards
 
 #### 7.2 Quality Assurance
+
 - [ ] Implement automated testing suite
   - [ ] Unit tests for all components
   - [ ] Integration tests
@@ -689,6 +768,7 @@ The system processes documents through this workflow:
 - [ ] Implement continuous integration
 
 #### 7.3 Documentation and Examples
+
 - [ ] Create comprehensive API documentation
 - [ ] Write user guides and tutorials
 - [ ] Add example configurations
@@ -699,6 +779,7 @@ The system processes documents through this workflow:
 ### Phase 8: Optimization & Scaling (Weeks 15-16)
 
 #### 8.1 Performance Optimization
+
 - [ ] Implement advanced caching strategies
 - [ ] Add database query optimization
 - [ ] Create batch processing optimizations
@@ -707,6 +788,7 @@ The system processes documents through this workflow:
 - [ ] Create processing pipeline optimization
 
 #### 8.2 Scalability Improvements
+
 - [ ] Implement distributed processing
 - [ ] Add message queue integration (Redis, RabbitMQ)
 - [ ] Create worker node management
@@ -715,6 +797,7 @@ The system processes documents through this workflow:
 - [ ] Create cluster management tools
 
 #### 8.3 Enterprise Features
+
 - [ ] Add enterprise authentication (LDAP, SAML)
 - [ ] Implement audit logging
 - [ ] Add compliance features (GDPR, etc.)
@@ -733,7 +816,7 @@ This project uses modern Python tooling:
 uv run docling-process ./documents --dry-run    # Preview processing
 uv run docling-process ./documents              # Process documents
 
-# Vector database queries  
+# Vector database queries
 uv run docling-search "search query"            # Find similar text
 uv run docling-stats                            # Database statistics
 
@@ -818,7 +901,8 @@ print(f"Processed {results.success_count} files successfully")
 The repository includes a real Japanese historical document for testing:
 
 **📖 奥技秘術　空手道 (Okugi Hijutsu Karate-do)**
-- **Author**: Toyama, Kanken  
+
+- **Author**: Toyama, Kanken
 - **Published**: Tokyo: Tanaka shoten, 1956
 - **Source**: [University of Hawaii Digital Collections](https://evols.library.manoa.hawaii.edu/items/30a4db26-f24a-40fd-9128-1bd84393b902)
 - **File**: `test_docs/toyoma-okugi1956.pdf`
@@ -830,7 +914,7 @@ This document provides an excellent test case for Japanese text OCR, traditional
 ```
 docling-japanese-books/
 ├── src/docling_japanese_books/
-│   ├── cli.py              # Rich CLI with download/process/search commands  
+│   ├── cli.py              # Rich CLI with download/process/search commands
 │   ├── config.py           # Hardcoded configuration optimized for Japanese
 │   ├── processor.py        # Main Docling pipeline with vision models
 │   ├── image_processor.py  # SHA-256 image extraction and storage
@@ -851,9 +935,9 @@ docling-japanese-books/
 
 - **IBM Docling & Granite Teams**: Document processing and vision models
 - **Milvus Team**: Vector database capabilities
-- **HuggingFace**: Model hosting and transformers library  
+- **HuggingFace**: Model hosting and transformers library
 - **University of Hawaii**: Historical Japanese document access
 
 ---
 
-*Built for Japanese document processing and LLM training workflows*
+_Built for Japanese document processing and LLM training workflows_

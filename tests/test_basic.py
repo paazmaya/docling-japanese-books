@@ -52,16 +52,28 @@ def test_output_directory_creation():
             config.output.output_base_dir = original_base
 
 
-def test_milvus_database_path():
-    """Test that Milvus database path is in user home directory."""
-    milvus_path = Path(config.database.milvus_uri)
-    home_dir = Path.home()
+def test_database_configuration():
+    """Test database configuration settings."""
+    # Test deployment mode configuration
+    assert config.database.deployment_mode in ["local", "cloud"]
 
-    # Check that path starts with home directory
-    assert str(milvus_path).startswith(str(home_dir))
+    # Test local database path (relative path)
+    if config.database.deployment_mode == "local":
+        milvus_path = Path(config.database.milvus_uri)
+        assert str(milvus_path).startswith(".database")
+        assert milvus_path.suffix == ".db"
 
-    # Check that it's in .milvus subdirectory
-    assert ".milvus" in milvus_path.parts
+    # Test connection parameter generation
+    connection_params = config.database.get_connection_params()
+    assert "uri" in connection_params
+
+    if config.database.deployment_mode == "cloud":
+        # Cloud mode should include token if API key is set
+        if config.database.zilliz_api_key:
+            assert "token" in connection_params
 
     # Check collection name is set
     assert config.database.collection_name == "docling_japanese_books"
+
+    # Test embedding dimension for BGE-M3
+    assert config.database.embedding_dimension == 1024

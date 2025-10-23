@@ -1,5 +1,6 @@
-"""Hardcoded configuration settings for the document processing pipeline."""
+"""Configuration settings for the document processing pipeline with cloud support."""
 
+import os
 from pathlib import Path
 
 # Built-in typing support for Python 3.9+
@@ -73,15 +74,35 @@ class DoclingConfig(BaseModel):
 
 
 class DatabaseConfig(BaseModel):
-    """Database configuration with hardcoded settings for Milvus."""
+    """Database configuration supporting both local Milvus Lite and Zilliz Cloud."""
 
-    # Milvus configuration - using standard shared location
+    # Database type selection
     database_type: str = Field(default="milvus", description="Database type")
 
-    # Milvus Lite database path - stored in project directory
+    # Local Milvus Lite configuration
     milvus_uri: str = Field(
         default=".database/docling_documents.db",
-        description="Milvus Lite database URI in project directory",
+        description="Milvus Lite database URI in project directory (local mode)",
+    )
+
+    # Zilliz Cloud configuration
+    zilliz_cloud_uri: str = Field(
+        default_factory=lambda: os.getenv("ZILLIZ_CLOUD_URI", ""),
+        description="Zilliz Cloud endpoint URI (cloud mode) - format: https://in03-<cluster-id>.serverless.gcp-us-west1.cloud.zilliz.com",
+    )
+    zilliz_api_key: str = Field(
+        default_factory=lambda: os.getenv("ZILLIZ_API_KEY", ""),
+        description="Zilliz Cloud API key (cloud mode) - get from Zilliz Cloud console",
+    )
+    zilliz_cluster_id: str = Field(
+        default_factory=lambda: os.getenv("ZILLIZ_CLUSTER_ID", ""),
+        description="Zilliz Cloud cluster ID (cloud mode)",
+    )
+
+    # Deployment mode can also be set via environment variable
+    deployment_mode: str = Field(
+        default_factory=lambda: os.getenv("MILVUS_DEPLOYMENT_MODE", "local"),
+        description="Deployment mode: 'local' (Milvus Lite) or 'cloud' (Zilliz Cloud)",
     )
 
     # Collection settings
@@ -103,6 +124,32 @@ class DatabaseConfig(BaseModel):
         default="Strong",
         description="Milvus consistency level (Strong, Session, Bounded, Eventually)",
     )
+
+    def get_connection_uri(self) -> str:
+        """Get the appropriate connection URI based on deployment mode."""
+        if self.deployment_mode == "cloud":
+            if not self.zilliz_cloud_uri:
+                raise ValueError(
+                    "Zilliz Cloud URI is required for cloud deployment mode"
+                )
+            return self.zilliz_cloud_uri
+        else:
+            return self.milvus_uri
+
+    def get_connection_params(self) -> dict:
+        """Get connection parameters for Milvus client."""
+        params = {
+            "uri": self.get_connection_uri(),
+        }
+
+        if self.deployment_mode == "cloud":
+            if not self.zilliz_api_key:
+                raise ValueError(
+                    "Zilliz Cloud API key is required for cloud deployment mode"
+                )
+            params["token"] = self.zilliz_api_key
+
+        return params
 
 
 class ChunkingConfig(BaseModel):

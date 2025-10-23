@@ -48,20 +48,48 @@ class MilvusVectorDB:
             raise
 
     def _setup_milvus_client(self) -> None:
-        """Set up Milvus client and ensure database directory exists."""
-        # Ensure Milvus directory exists
-        milvus_dir = Path(self.config.database.milvus_uri).parent
-        milvus_dir.mkdir(parents=True, exist_ok=True)
+        """Set up Milvus client for either local Milvus Lite or Zilliz Cloud."""
+        deployment_mode = self.config.database.deployment_mode
+
+        if deployment_mode == "local":
+            # Ensure Milvus directory exists for local deployment
+            milvus_dir = Path(self.config.database.milvus_uri).parent
+            milvus_dir.mkdir(parents=True, exist_ok=True)
+            self.logger.info(
+                f"Using local Milvus Lite at: {self.config.database.milvus_uri}"
+            )
+        elif deployment_mode == "cloud":
+            self.logger.info(
+                f"Connecting to Zilliz Cloud at: {self.config.database.zilliz_cloud_uri}"
+            )
+            if self.config.database.zilliz_cluster_id:
+                self.logger.info(
+                    f"Cluster ID: {self.config.database.zilliz_cluster_id}"
+                )
+        else:
+            raise ValueError(f"Unsupported deployment mode: {deployment_mode}")
 
         try:
-            self.logger.info(
-                f"Connecting to Milvus at: {self.config.database.milvus_uri}"
-            )
-            self.client = MilvusClient(uri=self.config.database.milvus_uri)
+            # Get connection parameters based on deployment mode
+            connection_params = self.config.database.get_connection_params()
+
+            self.logger.info(f"Connecting to Milvus ({deployment_mode} mode)...")
+            self.client = MilvusClient(**connection_params)
             self._ensure_collection()
-            self.logger.info("Milvus client initialized successfully")
+
+            if deployment_mode == "cloud":
+                self.logger.info("Connected to Zilliz Cloud successfully")
+            else:
+                self.logger.info("Connected to local Milvus Lite successfully")
+
         except Exception as e:
-            self.logger.error(f"Failed to initialize Milvus client: {e}")
+            self.logger.error(
+                f"Failed to initialize Milvus client ({deployment_mode} mode): {e}"
+            )
+            if deployment_mode == "cloud":
+                self.logger.error(
+                    "Check your Zilliz Cloud URI and API key configuration"
+                )
             raise
 
     def _ensure_collection(self) -> None:

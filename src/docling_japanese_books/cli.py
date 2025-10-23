@@ -36,6 +36,17 @@ def display_config_panel(console: Console, directory: Path) -> None:
         else "Disabled"
     )
 
+    # Database display based on deployment mode
+    db_mode = config.database.deployment_mode
+    if db_mode == "cloud":
+        db_display = f"Zilliz Cloud ({config.database.zilliz_cluster_id or 'cluster'})"
+        db_path_display = f"Cloud: [bright_cyan]{config.database.zilliz_cloud_uri or 'Not configured'}[/bright_cyan]"
+    else:
+        db_display = "Milvus Lite (Local)"
+        db_path_display = (
+            f"Local: [bright_black]{config.database.milvus_uri}[/bright_black]"
+        )
+
     console.print(
         Panel.fit(
             f"🚀 [bold blue]Docling Japanese Books Processor[/bold blue]\n\n"
@@ -45,8 +56,8 @@ def display_config_panel(console: Console, directory: Path) -> None:
             f"🧮 Embedding Model: [yellow]{config.chunking.embedding_model}[/yellow]\n"
             f"👁️  Vision Model: [bright_magenta]{vision_display}[/bright_magenta]\n"
             f"🖼️  Image Storage: [bright_cyan]{config.output.images_output_dir}[/bright_cyan]\n"
-            f"📊 Vector Database: [green]{config.database.database_type}[/green]\n"
-            f"💾 Milvus Path: [bright_black]{config.database.milvus_uri}[/bright_black]\n"
+            f"📊 Vector Database: [green]{db_display}[/green]\n"
+            f"💾 Database: {db_path_display}\n"
             f"📝 Output Formats: [magenta]{', '.join(config.output.output_formats)}[/magenta]\n"
             f"🔄 Batch Size: [bright_black]{config.processing.batch_size}[/bright_black]\n"
             f"🧵 Max Workers: [bright_black]{config.processing.max_workers}[/bright_black]",
@@ -418,6 +429,145 @@ def evaluate(output: Path, documents: Path, verbose: bool) -> None:
 
     except Exception as e:
         console.print(f"❌ Evaluation failed: {e}")
+        sys.exit(1)
+
+
+def _display_current_config(console: Console) -> None:
+    """Display current database configuration."""
+    current_mode = config.database.deployment_mode
+    console.print(f"📊 Current mode: [yellow]{current_mode}[/yellow]")
+
+    if current_mode == "cloud":
+        console.print(
+            f"🌐 Current cloud URI: [cyan]{config.database.zilliz_cloud_uri or 'Not set'}[/cyan]"
+        )
+        console.print(
+            f"🔑 API key configured: [green]{'Yes' if config.database.zilliz_api_key else 'No'}[/green]"
+        )
+        console.print(
+            f"🏷️  Cluster ID: [bright_black]{config.database.zilliz_cluster_id or 'Not set'}[/bright_black]"
+        )
+    else:
+        console.print(f"💾 Local database: [cyan]{config.database.milvus_uri}[/cyan]")
+
+    console.print()
+
+
+def _show_cloud_instructions(console: Console) -> None:
+    """Show Zilliz Cloud configuration instructions."""
+    console.print("💡 [bold]Zilliz Cloud Configuration:[/bold]")
+    console.print("Set environment variables or use command options:")
+    console.print("  [cyan]export MILVUS_DEPLOYMENT_MODE=cloud[/cyan]")
+    console.print(
+        "  [cyan]export ZILLIZ_CLOUD_URI=https://in03-xxx.serverless.gcp-us-west1.cloud.zilliz.com[/cyan]"
+    )
+    console.print("  [cyan]export ZILLIZ_API_KEY=your_api_key_here[/cyan]")
+    console.print("  [cyan]export ZILLIZ_CLUSTER_ID=your_cluster_id[/cyan]")
+    console.print()
+    console.print("📚 Get your credentials from: https://cloud.zilliz.com/")
+    console.print("📖 Setup guide: https://docs.zilliz.com/docs/data-import")
+
+
+def _test_database_connection(
+    console: Console, mode: str, cloud_uri: str, api_key: str, cluster_id: str
+) -> None:
+    """Test database connection with provided or current settings."""
+    import os
+    from importlib import reload
+
+    from . import config as config_module
+
+    console.print("🧪 Testing database connection...")
+
+    # Temporarily update environment if parameters provided
+    if mode:
+        os.environ["MILVUS_DEPLOYMENT_MODE"] = mode
+    if cloud_uri:
+        os.environ["ZILLIZ_CLOUD_URI"] = cloud_uri
+    if api_key:
+        os.environ["ZILLIZ_API_KEY"] = api_key
+    if cluster_id:
+        os.environ["ZILLIZ_CLUSTER_ID"] = cluster_id
+
+    # Reload config to pick up environment changes
+    reload(config_module)
+
+    # Test connection
+    from .vector_db import MilvusVectorDB
+
+    vector_db = MilvusVectorDB()
+    console.print("✅ Database connection successful!")
+
+    deployment_mode = vector_db.config.database.deployment_mode
+    if deployment_mode == "cloud":
+        console.print(
+            f"🌐 Connected to Zilliz Cloud: {vector_db.config.database.zilliz_cloud_uri}"
+        )
+    else:
+        console.print(
+            f"💾 Connected to local Milvus: {vector_db.config.database.milvus_uri}"
+        )
+
+
+@cli.command()
+@click.option(
+    "--cloud-uri",
+    help="Zilliz Cloud endpoint URI (e.g., https://in03-xxx.serverless.gcp-us-west1.cloud.zilliz.com)",
+)
+@click.option(
+    "--api-key",
+    help="Zilliz Cloud API key",
+)
+@click.option(
+    "--cluster-id",
+    help="Zilliz Cloud cluster ID",
+)
+@click.option(
+    "--mode",
+    type=click.Choice(["local", "cloud"]),
+    help="Set database deployment mode (local for Milvus Lite, cloud for Zilliz Cloud)",
+)
+@click.option(
+    "--test-connection",
+    is_flag=True,
+    help="Test the database connection after configuration",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Enable verbose logging",
+)
+def config_db(
+    cloud_uri: str,
+    api_key: str,
+    cluster_id: str,
+    mode: str,
+    test_connection: bool,
+    verbose: bool,
+) -> None:
+    """Configure database connection (local Milvus Lite or Zilliz Cloud)."""
+    console = Console()
+    log_level = "DEBUG" if verbose else "INFO"
+    setup_logging(log_level)
+
+    try:
+        _display_current_config(console)
+
+        # Show environment variable instructions
+        if mode == "cloud" or config.database.deployment_mode == "cloud":
+            _show_cloud_instructions(console)
+
+        # Test connection if requested
+        if test_connection:
+            _test_database_connection(console, mode, cloud_uri, api_key, cluster_id)
+
+    except Exception as e:
+        console.print(f"❌ Configuration failed: {e}")
+        if "zilliz" in str(e).lower() or "cloud" in str(e).lower():
+            console.print(
+                "💡 Check your Zilliz Cloud credentials and network connection"
+            )
         sys.exit(1)
 
 
