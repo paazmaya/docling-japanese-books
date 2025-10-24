@@ -100,7 +100,7 @@ dependencies = [
 
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
+test-cov = "pytest --cov {args:tests}"
 cov-report = [
     "- coverage combine",
     "coverage report",
@@ -213,5 +213,7 @@ directory = "htmlcov"
 
 [dependency-groups]
 dev = [
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
     "ruff>=0.14.1",
 ]

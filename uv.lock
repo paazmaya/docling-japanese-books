@@ -1441,6 +1441,8 @@ vision = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
     { name = "ruff" },
 ]
 
@@ -1478,7 +1480,11 @@ requires-dist = [
 provides-extras = ["dev", "vision", "databases", "all"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "ruff", specifier = ">=0.14.1" }]
+dev = [
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "ruff", specifier = ">=0.14.1" },
+]
 
 [[package]]
 name = "docling-parse"
