@@ -1041,7 +1041,17 @@ docling-japanese-books/
 
 ## License
 
-[Add your license information here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+### Third-Party Licenses
+
+This project uses several open-source libraries and models:
+
+- **IBM Docling**: [MIT License](https://github.com/DS4SD/docling/blob/main/LICENSE)
+- **IBM Granite Models**: [Apache 2.0 License](https://huggingface.co/ibm-granite/granite-docling-258M)
+- **Milvus**: [Apache 2.0 License](https://github.com/milvus-io/milvus/blob/master/LICENSE)
+- **Sentence Transformers**: [Apache 2.0 License](https://github.com/UKPLab/sentence-transformers/blob/master/LICENSE)
+- **BGE-M3**: [MIT License](https://huggingface.co/BAAI/bge-m3)
 
 ## Acknowledgments
 
