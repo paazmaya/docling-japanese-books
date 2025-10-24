@@ -86,6 +86,7 @@ scratch/
 # Docling models cache
 .cache/
 .models/
+.artifacts/
 
 # Local database
 .database/

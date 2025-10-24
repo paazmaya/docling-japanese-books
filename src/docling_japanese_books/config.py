@@ -19,7 +19,8 @@ class DoclingConfig(BaseModel):
     # PDF Processing options
     enable_ocr: bool = Field(default=True, description="Enable OCR processing")
     enable_vision: bool = Field(
-        default=True, description="Enable vision model processing for image description"
+        default=False,
+        description="Enable vision model processing for image description",
     )
     do_table_structure: bool = Field(
         default=True, description="Enable table structure extraction"

@@ -1,97 +1,237 @@
 [
   {
-    "document_id": "milvus_release",
+    "document_id": "toyoma-okugi1956",
     "traditional_metrics": {
       "model_name": "sentence-transformers/all-MiniLM-L6-v2",
       "chunking_method": "traditional",
-      "avg_cosine_similarity": 0.0,
+      "avg_cosine_similarity": 0.5731624364852905,
       "std_cosine_similarity": 0.0,
-      "processing_time": 0.10217905044555664,
-      "num_chunks": 1,
+      "processing_time": 2.0081400871276855,
+      "num_chunks": 2,
       "avg_chunk_length": 272,
-      "context_preservation_score": 1.0,
-      "japanese_specific_score": 0.16351981461048126
+      "context_preservation_score": 0.5731624364852905,
+      "japanese_specific_score": 0.4414554238319397
     },
     "late_chunking_metrics": {
       "model_name": "BAAI/bge-m3",
       "chunking_method": "late_chunking",
-      "avg_cosine_similarity": 0.0,
+      "avg_cosine_similarity": 1.0000001192092896,
       "std_cosine_similarity": 0.0,
-      "processing_time": 2.0808041095733643,
-      "num_chunks": 1,
-      "avg_chunk_length": 272,
-      "context_preservation_score": 1.0,
-      "japanese_specific_score": 0.3786328434944153
+      "processing_time": 307.77499508857727,
+      "num_chunks": 2,
+      "avg_chunk_length": 273,
+      "context_preservation_score": 1.0000001192092896,
+      "japanese_specific_score": 0.3432997763156891
     },
-    "improvement_percentage": 131.55166625976562,
+    "snowflake_arctic_metrics": {
+      "model_name": "Snowflake/snowflake-arctic-embed-l-v2.0",
+      "chunking_method": "snowflake_arctic",
+      "avg_cosine_similarity": 0.647025465965271,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 1.1967411041259766,
+      "num_chunks": 2,
+      "avg_chunk_length": 272,
+      "context_preservation_score": 0.647025465965271,
+      "japanese_specific_score": 0.1645474135875702
+    },
+    "jina_v4_metrics": {
+      "model_name": "jinaai/jina-embeddings-v4",
+      "chunking_method": "jina_v4",
+      "avg_cosine_similarity": 0.8539275527000427,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 4.474425792694092,
+      "num_chunks": 2,
+      "avg_chunk_length": 272,
+      "context_preservation_score": 0.8539275527000427,
+      "japanese_specific_score": 0.6016250848770142
+    },
+    "bge_m3_improvement": -22.234554290771484,
+    "snowflake_improvement": -62.72615051269531,
+    "jina_v4_improvement": 36.28218078613281,
+    "best_model": "Jina Embeddings v4",
     "details": {
-      "traditional_chunks": 1,
-      "late_chunking_chunks": 1,
-      "document_length": 299,
+      "traditional_chunks": 2,
+      "late_chunking_chunks": 2,
+      "snowflake_chunks": 2,
+      "jina_v4_chunks": 2,
+      "document_length": 554,
       "queries_tested": 8
     }
   },
   {
-    "document_id": "technical_manual",
+    "document_id": "集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究_3143445_0001",
     "traditional_metrics": {
       "model_name": "sentence-transformers/all-MiniLM-L6-v2",
       "chunking_method": "traditional",
-      "avg_cosine_similarity": 0.0,
+      "avg_cosine_similarity": 0.7426996231079102,
       "std_cosine_similarity": 0.0,
-      "processing_time": 0.028949975967407227,
-      "num_chunks": 1,
-      "avg_chunk_length": 250,
-      "context_preservation_score": 1.0,
-      "japanese_specific_score": 0.19310824573040009
+      "processing_time": 0.018909931182861328,
+      "num_chunks": 2,
+      "avg_chunk_length": 415,
+      "context_preservation_score": 0.7426996231079102,
+      "japanese_specific_score": 0.11804564297199249
     },
     "late_chunking_metrics": {
       "model_name": "BAAI/bge-m3",
       "chunking_method": "late_chunking",
-      "avg_cosine_similarity": 0.0,
+      "avg_cosine_similarity": 1.0,
       "std_cosine_similarity": 0.0,
-      "processing_time": 0.0852208137512207,
-      "num_chunks": 1,
-      "avg_chunk_length": 250,
+      "processing_time": 0.2255570888519287,
+      "num_chunks": 2,
+      "avg_chunk_length": 415,
       "context_preservation_score": 1.0,
-      "japanese_specific_score": 0.41403093934059143
+      "japanese_specific_score": 0.3815193176269531
     },
-    "improvement_percentage": 114.40355682373047,
+    "snowflake_arctic_metrics": {
+      "model_name": "Snowflake/snowflake-arctic-embed-l-v2.0",
+      "chunking_method": "snowflake_arctic",
+      "avg_cosine_similarity": 0.7048587203025818,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 0.1799769401550293,
+      "num_chunks": 2,
+      "avg_chunk_length": 415,
+      "context_preservation_score": 0.7048587203025818,
+      "japanese_specific_score": 0.11572003364562988
+    },
+    "jina_v4_metrics": {
+      "model_name": "jinaai/jina-embeddings-v4",
+      "chunking_method": "jina_v4",
+      "avg_cosine_similarity": 0.8934078216552734,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 1.705132007598877,
+      "num_chunks": 2,
+      "avg_chunk_length": 415,
+      "context_preservation_score": 0.8934078216552734,
+      "japanese_specific_score": 0.5861332416534424
+    },
+    "bge_m3_improvement": 223.1964569091797,
+    "snowflake_improvement": -1.9700933694839478,
+    "jina_v4_improvement": 396.5310363769531,
+    "best_model": "Jina Embeddings v4",
     "details": {
-      "traditional_chunks": 1,
-      "late_chunking_chunks": 1,
-      "document_length": 268,
+      "traditional_chunks": 2,
+      "late_chunking_chunks": 2,
+      "snowflake_chunks": 2,
+      "jina_v4_chunks": 2,
+      "document_length": 841,
       "queries_tested": 8
     }
   },
   {
-    "document_id": "user_guide",
+    "document_id": "広島県武術家伝_1939799_0001",
     "traditional_metrics": {
       "model_name": "sentence-transformers/all-MiniLM-L6-v2",
       "chunking_method": "traditional",
-      "avg_cosine_similarity": 0.0,
+      "avg_cosine_similarity": 0.8389325141906738,
       "std_cosine_similarity": 0.0,
-      "processing_time": 0.03061819076538086,
-      "num_chunks": 1,
-      "avg_chunk_length": 278,
-      "context_preservation_score": 1.0,
-      "japanese_specific_score": 0.07441778481006622
+      "processing_time": 0.017088890075683594,
+      "num_chunks": 2,
+      "avg_chunk_length": 393,
+      "context_preservation_score": 0.8389325141906738,
+      "japanese_specific_score": 0.12887288630008698
     },
     "late_chunking_metrics": {
       "model_name": "BAAI/bge-m3",
       "chunking_method": "late_chunking",
-      "avg_cosine_similarity": 0.0,
+      "avg_cosine_similarity": 1.0,
       "std_cosine_similarity": 0.0,
-      "processing_time": 0.08579111099243164,
-      "num_chunks": 1,
-      "avg_chunk_length": 278,
+      "processing_time": 0.22321224212646484,
+      "num_chunks": 2,
+      "avg_chunk_length": 393,
       "context_preservation_score": 1.0,
-      "japanese_specific_score": 0.3372611999511719
+      "japanese_specific_score": 0.3093777000904083
     },
-    "improvement_percentage": 353.1997375488281,
+    "snowflake_arctic_metrics": {
+      "model_name": "Snowflake/snowflake-arctic-embed-l-v2.0",
+      "chunking_method": "snowflake_arctic",
+      "avg_cosine_similarity": 0.7305597066879272,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 0.1984269618988037,
+      "num_chunks": 2,
+      "avg_chunk_length": 393,
+      "context_preservation_score": 0.7305597066879272,
+      "japanese_specific_score": 0.11973559856414795
+    },
+    "jina_v4_metrics": {
+      "model_name": "jinaai/jina-embeddings-v4",
+      "chunking_method": "jina_v4",
+      "avg_cosine_similarity": 0.8634748458862305,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 1.8409621715545654,
+      "num_chunks": 2,
+      "avg_chunk_length": 393,
+      "context_preservation_score": 0.8634748458862305,
+      "japanese_specific_score": 0.5191094279289246
+    },
+    "bge_m3_improvement": 140.06422424316406,
+    "snowflake_improvement": -7.090155124664307,
+    "jina_v4_improvement": 302.8073425292969,
+    "best_model": "Jina Embeddings v4",
     "details": {
-      "traditional_chunks": 1,
-      "late_chunking_chunks": 1,
-      "document_length": 305,
+      "traditional_chunks": 2,
+      "late_chunking_chunks": 2,
+      "snowflake_chunks": 2,
+      "jina_v4_chunks": 2,
+      "document_length": 799,
+      "queries_tested": 8
+    }
+  },
+  {
+    "document_id": "薙刀体操法_860420_0001",
+    "traditional_metrics": {
+      "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "chunking_method": "traditional",
+      "avg_cosine_similarity": 0.6508042216300964,
+      "std_cosine_similarity": 0.07304423302412033,
+      "processing_time": 0.10347604751586914,
+      "num_chunks": 4,
+      "avg_chunk_length": 357,
+      "context_preservation_score": 0.6913812756538391,
+      "japanese_specific_score": 0.2194560319185257
+    },
+    "late_chunking_metrics": {
+      "model_name": "BAAI/bge-m3",
+      "chunking_method": "late_chunking",
+      "avg_cosine_similarity": 1.0,
+      "std_cosine_similarity": 0.0,
+      "processing_time": 0.3912360668182373,
+      "num_chunks": 4,
+      "avg_chunk_length": 358,
+      "context_preservation_score": 1.0,
+      "japanese_specific_score": 0.33903324604034424
+    },
+    "snowflake_arctic_metrics": {
+      "model_name": "Snowflake/snowflake-arctic-embed-l-v2.0",
+      "chunking_method": "snowflake_arctic",
+      "avg_cosine_similarity": 0.6985822319984436,
+      "std_cosine_similarity": 0.0804891288280487,
+      "processing_time": 0.4054372310638428,
+      "num_chunks": 4,
+      "avg_chunk_length": 357,
+      "context_preservation_score": 0.7383882403373718,
+      "japanese_specific_score": 0.177164226770401
+    },
+    "jina_v4_metrics": {
+      "model_name": "jinaai/jina-embeddings-v4",
+      "chunking_method": "jina_v4",
+      "avg_cosine_similarity": 0.8674308657646179,
+      "std_cosine_similarity": 0.0381074883043766,
+      "processing_time": 3.663666009902954,
+      "num_chunks": 4,
+      "avg_chunk_length": 357,
+      "context_preservation_score": 0.8911449909210205,
+      "japanese_specific_score": 0.5799264311790466
+    },
+    "bge_m3_improvement": 54.48800277709961,
+    "snowflake_improvement": -19.271198272705078,
+    "jina_v4_improvement": 164.25631713867188,
+    "best_model": "Jina Embeddings v4",
+    "details": {
+      "traditional_chunks": 4,
+      "late_chunking_chunks": 4,
+      "snowflake_chunks": 4,
+      "jina_v4_chunks": 4,
+      "document_length": 1446,
       "queries_tested": 8
     }
   }

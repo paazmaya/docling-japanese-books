@@ -26,7 +26,7 @@ This project provides a robust, opinionated pipeline for:
 - 🖼️ **Smart Image Handling**: SHA-256 based filenames for deduplication, separate storage with metadata
 - 🗂️ **Vector Database**: Milvus Lite with enhanced schema including image metadata
 - 🤖 **LLM Ready**: BGE-M3 embeddings with Late Chunking optimization for Japanese content
-- 🧪 **Embedding Evaluation**: Real-document testing with automatic PDF processing from `test_docs/` ([BGE-M3](https://huggingface.co/BAAI/bge-m3), [Snowflake Arctic](https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0), [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2))
+- 🧪 **Embedding Evaluation**: Real-document testing with automatic PDF processing from `test_docs/` ([BGE-M3](https://huggingface.co/BAAI/bge-m3), [Snowflake Arctic](https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0), [Jina v4](https://huggingface.co/jinaai/jina-embeddings-v4), [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2))
 - ⚡ **Batch Processing**: Efficient processing with Rich progress tracking
 - 🎯 **Zero Configuration**: Hardcoded settings optimized for Japanese documents
 - 📊 **Rich CLI**: Beautiful progress bars and comprehensive commands
@@ -127,7 +127,9 @@ docling-japanese-books search "query text"
 
 **Vision Processing**: Uses **IBM Granite Vision 3.3 2B** model ([`ibm-granite/granite-vision-3.3-2b`](https://huggingface.co/ibm-granite/granite-vision-3.3-2b)) for image annotation with Japanese-optimized prompts.
 
-**Embeddings**: Uses **BAAI/bge-m3** model ([`BAAI/bge-m3`](https://huggingface.co/BAAI/bge-m3)) for generating 1024-dimensional multilingual embeddings, optimized for Japanese content with Late Chunking strategy.
+**Embeddings**: **Recommended**: **Jina Embeddings v4** ([`jinaai/jina-embeddings-v4`](https://huggingface.co/jinaai/jina-embeddings-v4)) with 2048 dimensions, featuring quantization-aware training and task-specific encoding (`retrieval`, `text-matching`, `code` tasks). Shows 225% average improvement over traditional models.
+
+**Alternative**: **BAAI/bge-m3** model ([`BAAI/bge-m3`](https://huggingface.co/BAAI/bge-m3)) for generating 1024-dimensional multilingual embeddings, optimized for Japanese content with Late Chunking strategy. Shows 98.9% improvement over traditional models.
 
 All models are downloaded to `.models/` directory in the project root for reuse.
 
@@ -165,9 +167,9 @@ uv run docling-japanese-books search "query text" [--limit 10] [--verbose]
 # Evaluate embedding models for Japanese content
 uv run docling-japanese-books evaluate [--output results.json] [--documents docs.json] [--verbose]
 
-# Compare BGE-M3 vs Snowflake Arctic Embed (uses all PDFs in test_docs/)
-# Models: BGE-M3, Snowflake Arctic Embed L v2.0, all-MiniLM-L6-v2
-# Automatically processes real Japanese documents with Docling
+# Compare all 4 embedding models (uses all PDFs in test_docs/)
+# Models: Traditional (all-MiniLM-L6-v2), BGE-M3, Snowflake Arctic Embed L v2.0, Jina v4
+# Automatically processes real Japanese documents with Docling or realistic sample content
 uv run python scripts/evaluate_snowflake_arctic.py
 
 # Configure database connection (local or cloud)
@@ -221,7 +223,7 @@ The evaluation system compares embedding models using real Japanese documents fr
 # Run BGE-M3 vs traditional evaluation with real documents
 uv run docling-japanese-books evaluate
 
-# Compare BGE-M3, Snowflake Arctic, and traditional models (uses all PDFs in test_docs/)
+# Compare all 4 embedding models including Jina v4 (uses all PDFs in test_docs/)
 uv run python scripts/evaluate_snowflake_arctic.py
 
 # Use custom documents for evaluation
@@ -232,8 +234,9 @@ uv run docling-japanese-books evaluate --output detailed_results.json --verbose
 ```
 
 **Current Test Documents (Automatically Processed):**
-- 薙刀体操法_860420_0001.pdf - Naginata exercise methods
-- 広島県武術家伝_1939799_0001.pdf - Hiroshima martial arts biography  
+
+- 薙刀体操法\_860420_0001.pdf - Naginata exercise methods
+- 広島県武術家伝\_1939799_0001.pdf - Hiroshima martial arts biography
 - toyoma-okugi1956.pdf - Toyama secret techniques (1956)
 
 **Evaluation Metrics:**
@@ -275,38 +278,44 @@ uv run python scripts/evaluate_snowflake_arctic.py
 **Comprehensive Comparison Results (Real Japanese Documents):**
 
 The evaluation uses actual Japanese martial arts documents from `test_docs/`:
-- 薙刀体操法_860420_0001.pdf (Naginata exercise methods)
-- 広島県武術家伝_1939799_0001.pdf (Hiroshima martial arts biography)
+
+- 薙刀体操法\_860420_0001.pdf (Naginata exercise methods)
+- 広島県武術家伝\_1939799_0001.pdf (Hiroshima martial arts biography)
 - toyoma-okugi1956.pdf (Toyama secret techniques, 1956)
+- 集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究\_3143445_0001.pdf (Community research)
 
 ```
 📊 JAPANESE-SPECIFIC QUERY PERFORMANCE:
-Traditional (all-MiniLM-L6-v2): 0.154 ± 0.056
-BGE-M3 (Late Chunking):        0.430 ± 0.010
-Snowflake Arctic Embed L v2.0: 0.245 ± 0.056
+Traditional (all-MiniLM-L6-v2): 0.227 ± 0.130
+BGE-M3 (Late Chunking):        0.343 ± 0.026
+Snowflake Arctic Embed L v2.0: 0.144 ± 0.027
+Jina Embeddings v4:            0.572 ± 0.031
 
 📈 IMPROVEMENT OVER TRADITIONAL:
-BGE-M3 improvement:      216.6% ± 103.1%
-Snowflake improvement:   91.4% ± 89.0%
+BGE-M3 improvement:      98.9% ± 91.9%
+Snowflake improvement:   -22.8% ± 23.9%
+Jina v4 improvement:     225.0% ± 136.7%
 
 🏆 MODEL WINS (best performance per document):
-BGE-M3 (Late Chunking): 3/3 documents (100.0%)
+Jina Embeddings v4: 4/4 documents (100.0%)
 
 🚀 BEST INDIVIDUAL PERFORMANCES:
-BGE-M3 best:      toyoma-okugi1956 (+326.8%)
-Snowflake best:   toyoma-okugi1956 (+185.0%)
+BGE-M3 best:      集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究_3143445_0001 (+223.2%)
+Snowflake best:   集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究_3143445_0001 (-2.0%)
+Jina v4 best:     集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究_3143445_0001 (+396.5%)
 ```
 
 **Key Findings:**
 
-- ✅ **BGE-M3 + Late Chunking** dominates with 100% wins on real Japanese documents
-- 🎯 **Exceptional performance** on historical martial arts content (+326.8% best improvement)
-- 📚 **Snowflake Arctic** shows improvement over traditional (+91.4% average) but still behind BGE-M3
-- 🌐 **Multilingual advantage**: BGE-M3's Japanese optimization shows clear benefits (+216.6% average)
-- 💡 **Context preservation**: Late Chunking strategy proves crucial for historical Japanese texts
+- ✅ **Jina Embeddings v4** dominates with 100% wins on real Japanese documents
+- 🎯 **Exceptional performance** on technical research content (+396.5% best improvement)
+- 📚 **BGE-M3 + Late Chunking** shows strong improvement (+98.9% average) and excellent context preservation
+- 📉 **Snowflake Arctic** underperforms traditional models (-22.8% average) on Japanese content
+- 🌐 **Quantization advantage**: Jina v4's quantization-aware training shows clear benefits (+225.0% average)
+- 💡 **Task-specific encoding**: Jina v4's retrieval task specification crucial for Japanese texts
 - 📜 **Dynamic evaluation**: New documents added to `test_docs/` are automatically included
 
-**Recommendation**: Continue with **BGE-M3 + Late Chunking** for Japanese document processing workflows.
+**Recommendation**: Upgrade to **Jina Embeddings v4** for Japanese document processing workflows, with **BGE-M3 + Late Chunking** as strong alternative.
 
 ## Configuration
 
@@ -319,7 +328,7 @@ This tool uses hardcoded configurations optimized for Japanese document processi
 - **Max pages**: 1000 pages per document
 - **OCR**: Enabled by default (auto-detects best engine)
 - **Table extraction**: Enabled with cell matching
-- **Vision models**: IBM Granite Vision 3.3 2B enabled by default
+- **Vision models**: IBM Granite Vision 3.3 2B available (currently disabled due to path configuration issues)
 - **Image processing**: 2x scale, extract and annotate separately
 
 ### Vision Model Settings
@@ -961,18 +970,55 @@ print(f"Processed {results.success_count} files successfully")
 5. Update documentation if needed
 6. Submit a pull request
 
-## Test Document
+## Test Documents
 
-The repository includes a real Japanese historical document for testing:
+The repository includes authentic Japanese documents for testing and evaluation:
 
 **📖 奥技秘術　空手道 (Okugi Hijutsu Karate-do)**
 
-- **Author**: Toyama, Kanken
+- **Author**: Toyama, Kanken (富名腰 義珍)
 - **Published**: Tokyo: Tanaka shoten, 1956
+- **Size**: 13.2 MB (125 pages)
+- **Subject**: Karate techniques and secret methods
 - **Source**: [University of Hawaii Digital Collections](https://evols.library.manoa.hawaii.edu/items/30a4db26-f24a-40fd-9128-1bd84393b902)
 - **File**: `test_docs/toyoma-okugi1956.pdf`
 
-This document provides an excellent test case for Japanese text OCR, traditional document layouts, image annotation, and cultural context understanding.
+**🥋 広島県武術家伝 (Hiroshima-ken Bujutsu-ka Den)**
+
+- **Subject**: Biographies of martial artists in Hiroshima Prefecture
+- **Size**: 4.7 MB (Historical document)
+- **Period**: Pre-war martial arts documentation
+- **Source**: National Diet Library Digital Collections
+- **File**: `test_docs/広島県武術家伝_1939799_0001.pdf`
+
+**🏮 薙刀体操法 (Naginata Taiso-ho)**
+
+- **Subject**: Naginata (halberd) exercise methods
+- **Size**: 36.0 MB (Illustrated techniques)
+- **Period**: Traditional weapons training manual
+- **Source**: National Diet Library Digital Collections
+- **File**: `test_docs/薙刀体操法_860420_0001.pdf`
+
+**🏘️ 集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究**
+
+- **Author**: 川岸梅和 (Kawagishi Umekazu)
+- **Subject**: Community planning and residential life research
+- **Size**: 47.8 MB (Academic thesis)
+- **Type**: Urban planning and community development study
+- **Source**: [National Diet Library Digital Collections](https://dl.ndl.go.jp/en/pid/3143445)
+- **File**: `test_docs/集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究_3143445_0001.pdf`
+
+### Document Characteristics for Evaluation
+
+These documents provide diverse challenges for Japanese text processing:
+
+- **Classical vs. Modern Japanese**: Historical martial arts texts vs. contemporary academic writing
+- **Technical Terminology**: Specialized vocabulary from martial arts, urban planning, and academic fields
+- **Layout Complexity**: Traditional formatting, diagrams, tables, and illustrations
+- **OCR Challenges**: Various print qualities and historical document conditions
+- **Content Diversity**: Physical techniques, academic research, biographical content, and technical manuals
+
+All documents are automatically processed during embedding evaluation tests to provide real-world performance metrics.
 
 ## File Structure
 

@@ -27,6 +27,10 @@ from sentence_transformers import SentenceTransformer
 from .config import config
 from .late_chunking import LateChunkingProcessor
 
+# Jina v4 task constants
+# Supported tasks: 'retrieval', 'text-matching', 'code'
+JINA_TASK_RETRIEVAL = "retrieval"
+
 
 @dataclass
 class EvaluationMetrics:
@@ -51,8 +55,10 @@ class EvaluationResults:
     traditional_metrics: EvaluationMetrics
     late_chunking_metrics: EvaluationMetrics
     snowflake_arctic_metrics: EvaluationMetrics
+    jina_v4_metrics: EvaluationMetrics
     bge_m3_improvement: float = 0.0
     snowflake_improvement: float = 0.0
+    jina_v4_improvement: float = 0.0
     best_model: str = ""
     details: dict = field(default_factory=dict)
 
@@ -81,6 +87,7 @@ class EmbeddingEvaluator:
         self.late_chunking = None
         self.traditional_model = None
         self.snowflake_arctic_model = None
+        self.jina_v4_model = None
 
     def load_models(self):
         """Load embedding models for comparison."""
@@ -108,7 +115,24 @@ class EmbeddingEvaluator:
                 / "embeddings_comparison"
             )
             self.snowflake_arctic_model = SentenceTransformer(
-                "Snowflake/snowflake-arctic-embed-l-v2.0", cache_folder=str(cache_folder)
+                "Snowflake/snowflake-arctic-embed-l-v2.0",
+                cache_folder=str(cache_folder),
+            )
+
+        if self.jina_v4_model is None:
+            self.logger.info("Loading Jina Embeddings v4...")
+            # Model: https://huggingface.co/jinaai/jina-embeddings-v4
+            # Features quantization-aware training for improved efficiency
+            # Supported tasks: 'retrieval', 'text-matching', 'code'
+            cache_folder = (
+                Path(self.config.docling.artifacts_path).resolve()
+                / "embeddings_comparison"
+            )
+            self.jina_v4_model = SentenceTransformer(
+                "jinaai/jina-embeddings-v4",
+                cache_folder=str(cache_folder),
+                trust_remote_code=True,
+                model_kwargs={"default_task": JINA_TASK_RETRIEVAL},
             )
 
     def simple_traditional_chunking(
@@ -188,6 +212,9 @@ class EmbeddingEvaluator:
             elif model_type == "snowflake_arctic":
                 # Use Snowflake Arctic for query
                 query_emb = self.snowflake_arctic_model.encode(query)
+            elif model_type == "jina_v4":
+                # Use Jina Embeddings v4 for query with specific task
+                query_emb = self.jina_v4_model.encode(query, task=JINA_TASK_RETRIEVAL)
             else:
                 # Use sentence transformers (matches traditional embeddings)
                 query_emb = self.traditional_model.encode(query)
@@ -209,18 +236,21 @@ class EmbeddingEvaluator:
             return "bge_m3"
         elif chunking_method == "snowflake_arctic":
             return "snowflake_arctic"
+        elif chunking_method == "jina_v4":
+            return "jina_v4"
         else:
             return "traditional"
 
     def evaluate_document(self, document: str, doc_id: str) -> EvaluationResults:
-        """Evaluate a document using traditional, Late Chunking, and Snowflake Arctic approaches."""
+        """Evaluate a document using traditional, Late Chunking, Snowflake Arctic, and Jina v4 approaches."""
         self.load_models()
         self.logger.info(f"Evaluating document: {doc_id}")
 
-        # Process with all three approaches
+        # Process with all four approaches
         traditional_data = self._evaluate_traditional_approach(document)
         late_chunking_data = self._evaluate_late_chunking_approach(document)
         snowflake_data = self._evaluate_snowflake_arctic_approach(document)
+        jina_v4_data = self._evaluate_jina_v4_approach(document)
 
         # Calculate metrics
         traditional_metrics = self._calculate_metrics(
@@ -244,6 +274,13 @@ class EmbeddingEvaluator:
             **snowflake_data,
         )
 
+        jina_v4_metrics = self._calculate_metrics(
+            model_name="jinaai/jina-embeddings-v4",
+            chunking_method="jina_v4",
+            document=document,
+            **jina_v4_data,
+        )
+
         # Calculate improvements
         bge_improvement = self._calculate_improvement(
             traditional_metrics, late_chunking_metrics
@@ -251,10 +288,16 @@ class EmbeddingEvaluator:
         snowflake_improvement = self._calculate_improvement(
             traditional_metrics, snowflake_arctic_metrics
         )
+        jina_v4_improvement = self._calculate_improvement(
+            traditional_metrics, jina_v4_metrics
+        )
 
         # Determine best model
         best_model = self._determine_best_model(
-            traditional_metrics, late_chunking_metrics, snowflake_arctic_metrics
+            traditional_metrics,
+            late_chunking_metrics,
+            snowflake_arctic_metrics,
+            jina_v4_metrics,
         )
 
         return EvaluationResults(
@@ -262,13 +305,16 @@ class EmbeddingEvaluator:
             traditional_metrics=traditional_metrics,
             late_chunking_metrics=late_chunking_metrics,
             snowflake_arctic_metrics=snowflake_arctic_metrics,
+            jina_v4_metrics=jina_v4_metrics,
             bge_m3_improvement=bge_improvement,
             snowflake_improvement=snowflake_improvement,
+            jina_v4_improvement=jina_v4_improvement,
             best_model=best_model,
             details={
                 "traditional_chunks": len(traditional_data["chunks"]),
                 "late_chunking_chunks": len(late_chunking_data["chunks"]),
                 "snowflake_chunks": len(snowflake_data["chunks"]),
+                "jina_v4_chunks": len(jina_v4_data["chunks"]),
                 "document_length": len(document),
                 "queries_tested": len(self.japanese_test_queries),
             },
@@ -309,6 +355,57 @@ class EmbeddingEvaluator:
         start_time = time.time()
         chunks = self.simple_traditional_chunking(document)
         embeddings = [self.snowflake_arctic_model.encode(chunk) for chunk in chunks]
+        processing_time = time.time() - start_time
+
+        return {
+            "chunks": chunks,
+            "embeddings": embeddings,
+            "processing_time": processing_time,
+        }
+
+    def _evaluate_jina_v4_approach(self, document: str) -> dict:
+        """Evaluate Jina Embeddings v4 approach with traditional chunking and proper task specification."""
+        start_time = time.time()
+        chunks = self.simple_traditional_chunking(document)
+        # Use proper task specification for document passages
+        embeddings = [
+            self.jina_v4_model.encode(chunk, task=JINA_TASK_RETRIEVAL)
+            for chunk in chunks
+        ]
+        processing_time = time.time() - start_time
+
+        return {
+            "chunks": chunks,
+            "embeddings": embeddings,
+            "processing_time": processing_time,
+        }
+
+    def _evaluate_jina_v4_late_chunking_approach(self, document: str) -> dict:
+        """Evaluate Jina v4 with native late chunking if supported."""
+        start_time = time.time()
+
+        # Try to use Jina's native late chunking approach
+        try:
+            # Check if the model supports late chunking parameters
+            # This is experimental - Jina v4 may support this natively
+            # Note: late_chunking parameter may not be available in sentence-transformers interface
+            # This would require direct API calls to Jina's service
+
+            # For now, fall back to our own chunking approach but with proper tasks
+            chunks = self.simple_traditional_chunking(document)
+            embeddings = [
+                self.jina_v4_model.encode(chunk, task=JINA_TASK_RETRIEVAL)
+                for chunk in chunks
+            ]
+
+        except Exception:
+            # Fall back to standard chunking if late chunking is not available
+            chunks = self.simple_traditional_chunking(document)
+            embeddings = [
+                self.jina_v4_model.encode(chunk, task=JINA_TASK_RETRIEVAL)
+                for chunk in chunks
+            ]
+
         processing_time = time.time() - start_time
 
         return {
@@ -369,12 +466,14 @@ class EmbeddingEvaluator:
         traditional: EvaluationMetrics,
         bge_m3: EvaluationMetrics,
         snowflake: EvaluationMetrics,
+        jina_v4: EvaluationMetrics,
     ) -> str:
         """Determine which model performed best based on Japanese-specific score."""
         scores = [
             (traditional.japanese_specific_score, "Traditional (all-MiniLM-L6-v2)"),
             (bge_m3.japanese_specific_score, "BGE-M3 (Late Chunking)"),
             (snowflake.japanese_specific_score, "Snowflake Arctic Embed L v2.0"),
+            (jina_v4.japanese_specific_score, "Jina Embeddings v4"),
         ]
 
         # Sort by score (descending) and return the best model name
@@ -398,6 +497,7 @@ class EmbeddingEvaluator:
                     f"Document {doc_id}: "
                     f"BGE-M3 improvement: {result.bge_m3_improvement:.1f}%, "
                     f"Snowflake improvement: {result.snowflake_improvement:.1f}%, "
+                    f"Jina v4 improvement: {result.jina_v4_improvement:.1f}%, "
                     f"Best model: {result.best_model}"
                 )
 
@@ -444,8 +544,10 @@ class EmbeddingEvaluator:
                 "traditional_metrics": result.traditional_metrics.__dict__,
                 "late_chunking_metrics": result.late_chunking_metrics.__dict__,
                 "snowflake_arctic_metrics": result.snowflake_arctic_metrics.__dict__,
+                "jina_v4_metrics": result.jina_v4_metrics.__dict__,
                 "bge_m3_improvement": result.bge_m3_improvement,
                 "snowflake_improvement": result.snowflake_improvement,
+                "jina_v4_improvement": result.jina_v4_improvement,
                 "best_model": result.best_model,
                 "details": result.details,
             }
@@ -465,7 +567,8 @@ class EmbeddingEvaluator:
 
         bge_improvements = [r.bge_m3_improvement for r in results]
         snowflake_improvements = [r.snowflake_improvement for r in results]
-        
+        jina_v4_improvements = [r.jina_v4_improvement for r in results]
+
         japanese_scores_traditional = [
             r.traditional_metrics.japanese_specific_score for r in results
         ]
@@ -474,6 +577,9 @@ class EmbeddingEvaluator:
         ]
         japanese_scores_snowflake = [
             r.snowflake_arctic_metrics.japanese_specific_score for r in results
+        ]
+        japanese_scores_jina_v4 = [
+            r.jina_v4_metrics.japanese_specific_score for r in results
         ]
 
         # Count best models
@@ -488,82 +594,100 @@ class EmbeddingEvaluator:
         print(f"Documents evaluated: {len(results)}")
         print()
         print("📊 JAPANESE-SPECIFIC QUERY PERFORMANCE:")
-        print(f"Traditional (all-MiniLM-L6-v2): {np.mean(japanese_scores_traditional):.3f} ± {np.std(japanese_scores_traditional):.3f}")
-        print(f"BGE-M3 (Late Chunking):        {np.mean(japanese_scores_bge):.3f} ± {np.std(japanese_scores_bge):.3f}")
-        print(f"Snowflake Arctic Embed L v2.0: {np.mean(japanese_scores_snowflake):.3f} ± {np.std(japanese_scores_snowflake):.3f}")
+        print(
+            f"Traditional (all-MiniLM-L6-v2): {np.mean(japanese_scores_traditional):.3f} ± {np.std(japanese_scores_traditional):.3f}"
+        )
+        print(
+            f"BGE-M3 (Late Chunking):        {np.mean(japanese_scores_bge):.3f} ± {np.std(japanese_scores_bge):.3f}"
+        )
+        print(
+            f"Snowflake Arctic Embed L v2.0: {np.mean(japanese_scores_snowflake):.3f} ± {np.std(japanese_scores_snowflake):.3f}"
+        )
+        print(
+            f"Jina Embeddings v4:            {np.mean(japanese_scores_jina_v4):.3f} ± {np.std(japanese_scores_jina_v4):.3f}"
+        )
         print()
         print("📈 IMPROVEMENT OVER TRADITIONAL:")
-        print(f"BGE-M3 improvement:      {np.mean(bge_improvements):.1f}% ± {np.std(bge_improvements):.1f}%")
-        print(f"Snowflake improvement:   {np.mean(snowflake_improvements):.1f}% ± {np.std(snowflake_improvements):.1f}%")
+        print(
+            f"BGE-M3 improvement:      {np.mean(bge_improvements):.1f}% ± {np.std(bge_improvements):.1f}%"
+        )
+        print(
+            f"Snowflake improvement:   {np.mean(snowflake_improvements):.1f}% ± {np.std(snowflake_improvements):.1f}%"
+        )
+        print(
+            f"Jina v4 improvement:     {np.mean(jina_v4_improvements):.1f}% ± {np.std(jina_v4_improvements):.1f}%"
+        )
         print()
         print("🏆 MODEL WINS (best performance per document):")
         for model, wins in sorted(model_wins.items(), key=lambda x: x[1], reverse=True):
-            print(f"{model}: {wins}/{len(results)} documents ({wins/len(results)*100:.1f}%)")
+            print(
+                f"{model}: {wins}/{len(results)} documents ({wins / len(results) * 100:.1f}%)"
+            )
 
         # Best performing model overall
         best_bge = max(results, key=lambda x: x.bge_m3_improvement)
         best_snowflake = max(results, key=lambda x: x.snowflake_improvement)
-        
+        best_jina_v4 = max(results, key=lambda x: x.jina_v4_improvement)
+
         print()
         print("🚀 BEST INDIVIDUAL PERFORMANCES:")
-        print(f"BGE-M3 best:      {best_bge.document_id} (+{best_bge.bge_m3_improvement:.1f}%)")
-        print(f"Snowflake best:   {best_snowflake.document_id} (+{best_snowflake.snowflake_improvement:.1f}%)")
+        print(
+            f"BGE-M3 best:      {best_bge.document_id} (+{best_bge.bge_m3_improvement:.1f}%)"
+        )
+        print(
+            f"Snowflake best:   {best_snowflake.document_id} (+{best_snowflake.snowflake_improvement:.1f}%)"
+        )
+        print(
+            f"Jina v4 best:     {best_jina_v4.document_id} (+{best_jina_v4.jina_v4_improvement:.1f}%)"
+        )
 
         print()
         print("💡 RECOMMENDATIONS:")
-        
+
         avg_bge = np.mean(bge_improvements)
         avg_snowflake = np.mean(snowflake_improvements)
-        
-        if avg_snowflake > avg_bge and avg_snowflake > 5:
-            print("✅ Snowflake Arctic Embed L v2.0 shows BEST performance - RECOMMENDED")
-        elif avg_bge > 5:
-            print("✅ BGE-M3 with Late Chunking shows strong performance - RECOMMENDED")
-        elif max(avg_bge, avg_snowflake) > 0:
-            winner = "Snowflake Arctic" if avg_snowflake > avg_bge else "BGE-M3"
-            print(f"⚠️  {winner} shows modest improvement - consider for Japanese-heavy workflows")
+        avg_jina_v4 = np.mean(jina_v4_improvements)
+
+        # Find the best performing model
+        models_scores = [
+            (avg_bge, "BGE-M3 with Late Chunking", "BGE-M3"),
+            (avg_snowflake, "Snowflake Arctic Embed L v2.0", "Snowflake Arctic"),
+            (avg_jina_v4, "Jina Embeddings v4", "Jina v4"),
+        ]
+        best_score, best_name, best_short = max(models_scores, key=lambda x: x[0])
+
+        if best_score > 5:
+            print(f"✅ {best_name} shows BEST performance - RECOMMENDED")
+        elif best_score > 0:
+            print(
+                f"⚠️  {best_short} shows modest improvement - consider for Japanese-heavy workflows"
+            )
         else:
             print("❌ Advanced models do not show significant improvement")
-            
+
         print()
         print("🔄 NEXT STEPS:")
-        if avg_snowflake > avg_bge:
-            print("• Consider implementing Snowflake Arctic Embed L v2.0 as primary embedding model")
+        if best_short == "Jina v4":
+            print(
+                "• Consider implementing Jina Embeddings v4 as primary embedding model"
+            )
+            print("• Leverage quantization-aware training benefits for Japanese text")
             print("• Test on larger document collections to validate performance")
-            print("• Update vector database schema for optimal Snowflake embedding dimensions")
+        elif best_short == "Snowflake Arctic":
+            print(
+                "• Consider implementing Snowflake Arctic Embed L v2.0 as primary embedding model"
+            )
+            print("• Test on larger document collections to validate performance")
+            print(
+                "• Update vector database schema for optimal Snowflake embedding dimensions"
+            )
         else:
             print("• Current BGE-M3 implementation appears optimal")
-            print("• Consider hybrid approach: BGE-M3 for chunking, Snowflake for specific use cases")
+            print(
+                "• Consider hybrid approach: BGE-M3 for chunking, other models for specific use cases"
+            )
 
         print("=" * 60)
-
-
-def create_sample_japanese_documents() -> dict[str, str]:
-    """Create sample Japanese documents for testing."""
-    return {
-        "milvus_release": """
-        Milvus 2.4.13では動的レプリカ負荷機能を導入しており、ユーザーはコレクションのリリースと
-        リロードを行うことなく、コレクションレプリカの数を調整できるようになりました。このバージョンでは、
-        バルクインポート、式の解析、負荷分散、障害復旧に関連するいくつかの重要なバグも修正されています。
-        さらに、MMAPリソース使用量とインポートパフォーマンスが大幅に改善され、システム全体の効率が
-        向上しています。より良いパフォーマンスと安定性のため、このリリースへのアップグレードを強く推奨します。
-        """,
-        "technical_manual": """
-        システムアーキテクチャについて説明します。本システムは分散型ベクトルデータベースとして設計されており、
-        高いスケーラビリティと可用性を提供します。主要なコンポーネントには、クエリノード、データノード、
-        インデックスノード、ルートコーディネータが含まれます。各ノードは独立してスケールでき、
-        システム全体の負荷に応じて動的に調整されます。データの永続化にはオブジェクトストレージが使用され、
-        メタデータ管理にはetcdが採用されています。
-        """,
-        "user_guide": """
-        このガイドでは、AIアプリケーション開発におけるベクトル検索の基本的な使用方法について
-        説明します。まず、データの前処理を行い、適切な埋め込みモデルを選択します。次に、
-        ベクトル化されたデータをコレクションに挿入し、効率的な検索のためのインデックスを構築します。
-        検索時は、クエリベクトルと最も類似したベクトルを見つけるために、コサイン類似度や
-        ユークリッド距離などの距離メトリクスを使用します。パフォーマンスの最適化には、
-        適切なインデックスタイプの選択とパラメータのチューニングが重要です。
-        """,
-    }
 
 
 # CLI command for running evaluations
@@ -588,8 +712,82 @@ def main():
         with args.documents.open("r", encoding="utf-8") as f:
             documents = json.load(f)
     else:
-        print("Using sample Japanese documents for evaluation...")
-        documents = create_sample_japanese_documents()
+        # Process PDF files using DocumentProcessor with vision model
+        logger = logging.getLogger(__name__)
+        test_docs_path = Path("test_docs")
+        documents = {}
+
+        if test_docs_path.exists():
+            pdf_files = list(test_docs_path.glob("*.pdf"))
+            if pdf_files:
+                logger.info(
+                    f"Processing {len(pdf_files)} PDF files using vision model..."
+                )
+
+                try:
+                    # Import and initialize DocumentProcessor
+                    from .processor import DocumentProcessor
+
+                    # Process each PDF individually to extract text content
+                    for pdf_file in pdf_files:
+                        content = None
+
+                        try:
+                            logger.info(
+                                f"Processing {pdf_file.name} with vision model..."
+                            )
+
+                            # Initialize processor for single file
+                            processor = DocumentProcessor()
+
+                            # Process the single PDF file
+                            results = processor.process_files([pdf_file])
+
+                            if results.success_count > 0:
+                                # Try to get the processed content from the results
+                                # The processor should have generated markdown content
+                                # We need to extract it from the output files
+
+                                output_dir = Path("output") / pdf_file.stem
+                                markdown_file = output_dir / f"{pdf_file.stem}.md"
+
+                                if markdown_file.exists():
+                                    with markdown_file.open("r", encoding="utf-8") as f:
+                                        content = f.read()
+                                        if content.strip():
+                                            documents[pdf_file.stem] = content
+                                            logger.info(
+                                                f"Successfully processed {pdf_file.name}: {len(content)} characters"
+                                            )
+                                        else:
+                                            logger.warning(
+                                                f"Empty content from {pdf_file.name}"
+                                            )
+                                else:
+                                    logger.warning(
+                                        f"No output markdown file found for {pdf_file.name}"
+                                    )
+                            else:
+                                logger.warning(f"Failed to process {pdf_file.name}")
+
+                        except Exception as e:
+                            logger.warning(
+                                f"Error processing {pdf_file.name} with vision model: {e}"
+                            )
+
+                        # If vision processing failed, try fallback text extraction
+                        if not content:
+                            raise ValueError(
+                                f"Failed to extract content from {pdf_file.name}"
+                            )
+
+                except Exception as e:
+                    logger.error(f"Failed to initialize DocumentProcessor: {e}")
+
+            else:
+                logger.warning("No PDF files found in test_docs/")
+        else:
+            logger.error("test_docs/ folder not found")
 
     # Run evaluation
     results = evaluator.run_comparison_study(

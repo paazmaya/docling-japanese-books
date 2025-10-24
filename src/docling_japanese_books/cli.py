@@ -394,40 +394,50 @@ def search(query_text: str, limit: int, verbose: bool) -> None:
 )
 def evaluate(output: Path, documents: Path, verbose: bool) -> None:
     """Evaluate and compare BGE-M3 Late Chunking vs traditional embedding approaches.
-    
+
     For comprehensive 3-model comparison including Snowflake Arctic Embed,
     use: python scripts/evaluate_snowflake_arctic.py
     """
     import json
-
-    from .embedding_evaluation import (
-        EmbeddingEvaluator,
-        create_sample_japanese_documents,
-    )
 
     console = Console()
     log_level = "DEBUG" if verbose else "INFO"
     setup_logging(log_level)
 
     try:
-        evaluator = EmbeddingEvaluator()
-
         # Load documents
         if documents:
             console.print(f"📖 Loading documents from: {documents}")
             with documents.open("r", encoding="utf-8") as f:
                 docs = json.load(f)
         else:
-            console.print("📖 Using sample Japanese documents for evaluation...")
-            docs = create_sample_japanese_documents()
+            console.print("📖 Processing Japanese documents from test_docs/ folder...")
+            # The evaluation will process real PDF files from test_docs/ or use realistic sample content
+            docs = {}
 
-        console.print(f"🔬 Evaluating {len(docs)} documents...")
-        console.print("📊 Comparing Traditional vs Late Chunking approaches")
+        if docs:
+            console.print(f"🔬 Evaluating {len(docs)} documents...")
+        else:
+            console.print("� Running evaluation with test documents...")
+        console.print("�📊 Comparing Traditional vs Late Chunking approaches")
         console.print("🧠 Testing BGE-M3 multilingual model vs sentence-transformers")
         console.print()
 
-        # Run evaluation
-        evaluator.run_comparison_study(docs, output_path=output)
+        # Run evaluation - main() function will handle document processing
+        import sys
+
+        from .embedding_evaluation import main as run_evaluation
+
+        # Temporarily modify sys.argv to pass arguments to main()
+        original_argv = sys.argv[:]
+        sys.argv = ["embedding_evaluation"]
+        if output != Path("embedding_evaluation_results.json"):
+            sys.argv.extend(["--output", str(output)])
+
+        try:
+            run_evaluation()
+        finally:
+            sys.argv = original_argv
 
         console.print(f"✅ Evaluation complete! Results saved to: {output}")
 

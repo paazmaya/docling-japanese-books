@@ -68,7 +68,6 @@ all = [
 
 [project.scripts]
 docling-japanese-books = "docling_japanese_books.cli:cli"
-evaluate-snowflake-arctic = "scripts.evaluate_snowflake_arctic:main"
 
 [project.urls]
 Homepage = "https://github.com/paazmaya/docling-japanese-books"
