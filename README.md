@@ -610,301 +610,31 @@ The system processes documents through this workflow:
 4. **Vector Storage**: Chunks stored in Milvus with enhanced metadata
 5. **Search**: Rich search interface showing both text and image information
 
-### Test Data
-
-- `toyoma-okugi1956.pdf` (Japanese karate book from 1956)　
-- `広島県武術家伝_1939799_0001.pdf` from　https://dl.ndl.go.jp/pid/1939799/1/5
-
 ## Development Roadmap
 
-### 🎯 Next Steps (High Priority)
-
-#### Enhanced Processing
-
-- [ ] **Batch Processing Optimization**: Parallel processing for large document sets
-- [ ] **OCR Language Detection**: Auto-detect Japanese text for better OCR
-- [ ] **Document Validation**: Pre-processing validation and file health checks
-
-#### Advanced Features
-
-- [ ] **Document Relationships**: Link related documents and detect duplicates
 - [ ] **Metadata Extraction**: Enhanced metadata from document properties
-- [ ] **Export Formats**: Additional output formats (XML, CSV, etc.)
-
-#### Performance & Scalability
-
 - [ ] **Incremental Processing**: Skip already-processed documents
 - [ ] **Memory Optimization**: Streaming processing for large files
 - [ ] **GPU Acceleration**: Optional GPU support for vision models
-
-### 🔮 Future Enhancements (Medium Priority)
-
-- [x] Install and configure Docling with all necessary dependencies
-- [x] Create configuration management system (YAML/JSON configs)
-- [x] Set up logging infrastructure with structured logging
-- [x] Initialize Git repository with proper .gitignore
-- [x] Set up development environment (IDE configurations, formatters, linters)
-- [x] Create basic CLI interface using argparse or Click
-
-#### 1.2 Core Document Processing
-
-- [x] Implement basic DocumentConverter wrapper class
-- [x] Create file discovery and validation system
-  - [x] Support for recursive directory traversal
-  - [x] File format detection and filtering
-  - [x] File size and validation checks
-- [x] Implement basic batch document processing
-  - [x] Process documents sequentially
-  - [x] Basic error handling and retry logic
-  - [x] Progress tracking and reporting
-- [x] Create document metadata extraction
-  - [x] File metadata (size, dates, path)
-  - [x] Document metadata (title, author, pages)
-  - [x] Processing metadata (timestamps, versions)
-
-#### 1.3 Basic Storage Layer
-
-- [x] Design database schema for document storage
-  - [x] Documents table (metadata, status) - _Implemented with Milvus vector database_
-  - [x] Content table (processed text, structure) - _Implemented with vector storage_
-  - [x] Processing logs table - _Implemented with structured logging_
-- [x] Implement SQLite database backend (for development) - _Using Milvus Lite instead_
-- [x] Create basic CRUD operations for documents
-- [x] Implement database migration system - _Auto-collection creation_
-- [x] Add data validation and integrity checks
-
-### Phase 2: Advanced Processing & Multiple Formats (Weeks 3-4)
-
-#### 2.1 Advanced Docling Features
-
-- [x] Implement table extraction and serialization
-  - [x] Default table format handling
-  - [x] Markdown table serialization
-  - [ ] CSV export for tables
-- [x] Add OCR capabilities and configuration
-  - [ ] Language detection for multilingual documents
-  - [ ] Custom OCR model integration
-  - [ ] OCR confidence scoring
-- [x] Implement formula and equation extraction
-- [x] Add support for document enrichment features
-- [x] Configure pipeline options for different document types
-
-#### 2.2 Multi-format Support
-
-- [x] Extend support beyond PDF
-  - [x] HTML document processing
-  - [x] DOCX/DOC support
-  - [x] PowerPoint presentations
-  - [ ] Excel spreadsheets
-  - [x] Image files (PNG, JPEG, TIFF)
-- [x] Implement format-specific optimizations
-- [x] Add format detection and routing
-- [x] Create format-specific metadata extraction
-
-#### 2.3 Enhanced Storage Options
-
-- [x] Implement PostgreSQL backend - _Using Milvus vector database instead_
-- [x] Add MongoDB support for NoSQL storage - _Using Milvus vector database_
-- [x] Create abstract database interface
-- [x] Implement connection pooling and optimization
 - [ ] Add database performance monitoring
 - [ ] Create backup and restore functionality
-
-### Phase 3: Chunking & LLM Training Preparation (Weeks 5-6)
-
-#### 3.1 Document Chunking System
-
-- [x] Implement HybridChunker integration
-- [x] Add HierarchicalChunker support
-- [x] Create tokenizer integration
-  - [x] HuggingFace tokenizer support - _IBM Granite Docling model_
-  - [ ] OpenAI tiktoken support
-  - [x] Custom tokenizer configurations
-- [x] Implement chunk size optimization - _Late Chunking with BGE-M3_
-- [x] Add metadata preservation in chunks
-- [x] Create chunk quality assessment - _Embedding evaluation framework_
-
-#### 3.2 Serialization Strategies
-
-- [x] Implement multiple serialization formats
-  - [x] Markdown serialization
-  - [x] JSON structured output
-  - [x] Plain text extraction
-  - [x] JSONL format for streaming
-- [x] Add custom serialization strategies
-  - [x] Table-specific serialization
-  - [x] Image placeholder handling
-  - [x] Formula preservation
-- [x] Create serialization configuration system
-
-#### 3.3 LLM Training Data Formats
-
-- [x] Generate training datasets in common formats
+- [ ] OpenAI tiktoken support
+- [ ] Separate image storage with linking to the relevant document, page and position
+- [ ] Implement image description generation
+- [ ] Generate training datasets in common formats
   - [ ] Alpaca format
   - [ ] ShareGPT format
   - [ ] Instruction tuning datasets
   - [ ] Question-answer pairs
 - [ ] Implement data splitting (train/validation/test)
-- [x] Add dataset statistics and analysis - _Embedding evaluation metrics_
-- [x] Create data quality validation
-- [x] Implement data deduplication - _SHA-256 image hashing_
-
-### Phase 4: Vision Models & Advanced Features (Weeks 7-8)
-
-#### 4.1 Vision Model Integration
-
-- [x] Integrate local vision models for image analysis - _IBM Granite Vision 3.3 2B_
-- [ ] Add remote vision model support (API-based)
-- [x] Implement image description generation - _Japanese-optimized prompts_
-- [x] Add figure and chart analysis
-- [x] Create custom vision model pipelines
-- [x] Implement vision model comparison tools - _Embedding evaluation framework_
-
-#### 4.2 Advanced Document Understanding
-
-- [ ] Add PII detection and obfuscation
-- [x] Implement document classification - _Japanese content analysis_
-- [x] Add language detection and translation - _Japanese-focused processing_
-- [x] Create document similarity analysis - _Vector search with BGE-M3_
-- [x] Implement content extraction rules
-- [x] Add custom enrichment plugins - _Image processor, late chunking_
-
-#### 4.3 Performance Optimization
-
-- [x] Implement parallel processing
-  - [x] Multi-threaded document processing - _Batch processing_
+- [ ] Implement parallel processing
+  - [ ] Multi-threaded document processing
   - [ ] Asynchronous I/O operations
   - [ ] Process pool management
-- [x] Add caching mechanisms
+- [ ] Add caching mechanisms
   - [ ] Document cache
-  - [x] Model cache - _Local .models directory_
+  - [ ] Model cache, under ".models" directory
   - [ ] Result cache
-- [x] Implement resource monitoring and limits - _File size limits, progress tracking_
-- [x] Add performance profiling tools - _Embedding evaluation benchmarks_
-
-### Phase 5: Vector Databases & RAG Preparation (Weeks 9-10)
-
-#### 5.1 Vector Database Integration
-
-- [x] Implement vector embedding generation - _BGE-M3 multilingual embeddings_
-- [x] Add support for multiple vector databases
-  - [ ] Chroma
-  - [ ] Pinecone
-  - [ ] Weaviate
-  - [ ] Qdrant
-  - [ ] FAISS
-  - [x] **Milvus** - _Milvus Lite and Zilliz Cloud_
-- [x] Create embedding model integration
-  - [x] Sentence Transformers - _BGE-M3_
-  - [ ] OpenAI embeddings
-  - [x] Custom embedding models - _Late Chunking with BGE-M3_
-- [x] Implement vector search capabilities
-
-#### 5.2 RAG Pipeline Components
-
-- [x] Create document retrieval system
-- [x] Implement semantic search - _Vector search with similarity scoring_
-- [ ] Add hybrid search (keyword + semantic)
-- [x] Create context window optimization - _Late Chunking for better context_
-- [x] Implement relevance scoring - _Cosine similarity with BGE-M3_
-- [ ] Add query expansion techniques
-
-#### 5.3 Integration with AI Frameworks
-
-- [ ] LangChain integration
-- [ ] LlamaIndex integration
-- [ ] Haystack integration
-- [x] Create framework-agnostic interfaces - _Modular architecture_
-- [ ] Add example notebooks and tutorials
-
-### Phase 6: Production Features & Deployment (Weeks 11-12)
-
-#### 6.1 Production Readiness
-
-- [ ] Implement comprehensive error handling
-- [ ] Add circuit breaker patterns
-- [ ] Create health check endpoints
-- [ ] Implement graceful shutdown
-- [ ] Add process monitoring and alerting
-- [ ] Create data validation pipelines
-
-#### 6.2 API and Web Interface
-
-- [ ] Create REST API for document processing
-- [ ] Implement WebSocket for real-time updates
-- [ ] Add web-based document upload interface
-- [ ] Create processing status dashboard
-- [ ] Implement user authentication and authorization
-- [ ] Add API rate limiting
-
-#### 6.3 Configuration and Deployment
-
-- [ ] Create Docker containers
-- [ ] Add Kubernetes manifests
-- [ ] Implement configuration management
-- [ ] Create deployment scripts
-- [ ] Add monitoring and observability
-- [ ] Implement auto-scaling capabilities
-
-### Phase 7: Advanced Analytics & Machine Learning (Weeks 13-14)
-
-#### 7.1 Document Analytics
-
-- [ ] Implement document statistics and insights
-- [ ] Add content analysis and classification
-- [ ] Create document clustering algorithms
-- [ ] Implement topic modeling
-- [ ] Add trend analysis over document collections
-- [ ] Create visualization dashboards
-
-#### 7.2 Quality Assurance
-
-- [x] Implement automated testing suite
-  - [x] Unit tests for all components
-  - [ ] Integration tests
-  - [x] Performance benchmarks - _Embedding evaluation_
-  - [ ] End-to-end tests
-- [x] Add data quality validation
-- [ ] Create regression testing
-- [x] Implement continuous integration - _GitHub Actions CI/CD_
-
-#### 7.3 Documentation and Examples
-
-- [ ] Create comprehensive API documentation
-- [ ] Write user guides and tutorials
-- [ ] Add example configurations
-- [ ] Create Jupyter notebook examples
-- [ ] Write best practices guide
-- [ ] Add troubleshooting documentation
-
-### Phase 8: Optimization & Scaling (Weeks 15-16)
-
-#### 8.1 Performance Optimization
-
-- [ ] Implement advanced caching strategies
-- [ ] Add database query optimization
-- [ ] Create batch processing optimizations
-- [ ] Implement memory management improvements
-- [ ] Add CPU/GPU utilization optimization
-- [ ] Create processing pipeline optimization
-
-#### 8.2 Scalability Improvements
-
-- [ ] Implement distributed processing
-- [ ] Add message queue integration (Redis, RabbitMQ)
-- [ ] Create worker node management
-- [ ] Implement load balancing
-- [ ] Add horizontal scaling capabilities
-- [ ] Create cluster management tools
-
-#### 8.3 Enterprise Features
-
-- [ ] Add enterprise authentication (LDAP, SAML)
-- [ ] Implement audit logging
-- [ ] Add compliance features (GDPR, etc.)
-- [ ] Create data retention policies
-- [ ] Implement backup and disaster recovery
-- [ ] Add multi-tenancy support
 
 ## Development
 
@@ -926,23 +656,17 @@ uv run ruff check .          # Check for issues
 uv run ruff format .         # Format code
 uv run ruff check --fix .    # Fix auto-fixable issues
 
-# Type checking and testing
-uv run mypy src/             # Type checking
-uv run pytest               # Run tests
-```
+# Type checking
+uv run mypy src/
 
-### Project Structure
+# Run all tests with coverage
+uv run python -m pytest tests/ -v
 
-```
-docling-japanese-books/
-├── src/docling_japanese_books/
-│   ├── __init__.py
-│   ├── cli.py           # Command-line interface
-│   ├── config.py        # Hardcoded configuration
-│   └── processor.py     # Document processing logic
-├── pyproject.toml       # Project dependencies and tools
-├── dev-setup.sh         # Development setup script
-└── README.md
+# Run tests with coverage report
+uv run python -m pytest tests/ --cov=src/docling_japanese_books --cov-report=html
+
+# Quick test using configured shortcuts
+uv run pytest  # Uses pyproject.toml configuration
 ```
 
 ## Usage Examples
@@ -988,82 +712,49 @@ results = processor.process_files(files)
 print(f"Processed {results.success_count} files successfully")
 ```
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Update documentation if needed
-6. Submit a pull request
-
 ## Test Documents
 
 The repository includes authentic Japanese documents for testing and evaluation:
 
 **📖 奥技秘術　空手道 (Okugi Hijutsu Karate-do)**
 
-- **Author**: Toyama, Kanken (富名腰 義珍)
-- **Published**: Tokyo: Tanaka shoten, 1956
+- **Author**: 富名腰 義珍 (Toyama Kanken)
+- **Publisher**: 田中書店 (Tanaka Shoten), Tokyo, 1956
 - **Size**: 13.2 MB (125 pages)
 - **Subject**: Karate techniques and secret methods
+- **Period**: Post-war martial arts instruction
 - **Source**: [University of Hawaii Digital Collections](https://evols.library.manoa.hawaii.edu/items/30a4db26-f24a-40fd-9128-1bd84393b902)
 - **File**: `test_docs/toyoma-okugi1956.pdf`
 
 **🥋 広島県武術家伝 (Hiroshima-ken Bujutsu-ka Den)**
 
-- **Subject**: Biographies of martial artists in Hiroshima Prefecture
+- **Author**: 手島益雄 (Tejima Masuo)
+- **Publisher**: 東京芸備社 (Tokyo Geibi-sha), 大正14年 (Taisho 14, 1925)
 - **Size**: 4.7 MB (Historical document)
+- **Subject**: Biographies of martial artists in Hiroshima Prefecture
 - **Period**: Pre-war martial arts documentation
-- **Source**: National Diet Library Digital Collections
+- **Source**: [National Diet Library Digital Collections](https://dl.ndl.go.jp/pid/1939799/1/5)
 - **File**: `test_docs/広島県武術家伝_1939799_0001.pdf`
 
 **🏮 薙刀体操法 (Naginata Taiso-ho)**
 
+- **Author**: 小沢卯之助 (Ozawa Unosuke)
+- **Publisher**: 宝文館 (Hobunkan), 明治36年8月 (Meiji 36, August 1903)
+- **Size**: 36.0 MB (104 pages)
 - **Subject**: Naginata (halberd) exercise methods
-- **Size**: 36.0 MB (Illustrated techniques)
 - **Period**: Traditional weapons training manual
-- **Source**: National Diet Library Digital Collections
+- **Source**: [National Diet Library Digital Collections](https://dl.ndl.go.jp/en/pid/860420)
 - **File**: `test_docs/薙刀体操法_860420_0001.pdf`
 
 **🏘️ 集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究**
 
 - **Author**: 川岸梅和 (Kawagishi Umekazu)
-- **Subject**: Community planning and residential life research
+- **Publisher**: [Academic thesis], [Modern academic work]
 - **Size**: 47.8 MB (Academic thesis)
-- **Type**: Urban planning and community development study
+- **Subject**: Community planning and residential life research
+- **Period**: Urban planning and community development study
 - **Source**: [National Diet Library Digital Collections](https://dl.ndl.go.jp/en/pid/3143445)
 - **File**: `test_docs/集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究_3143445_0001.pdf`
-
-### Document Characteristics for Evaluation
-
-These documents provide diverse challenges for Japanese text processing:
-
-- **Classical vs. Modern Japanese**: Historical martial arts texts vs. contemporary academic writing
-- **Technical Terminology**: Specialized vocabulary from martial arts, urban planning, and academic fields
-- **Layout Complexity**: Traditional formatting, diagrams, tables, and illustrations
-- **OCR Challenges**: Various print qualities and historical document conditions
-- **Content Diversity**: Physical techniques, academic research, biographical content, and technical manuals
-
-All documents are automatically processed during embedding evaluation tests to provide real-world performance metrics.
-
-## File Structure
-
-```
-docling-japanese-books/
-├── src/docling_japanese_books/
-│   ├── cli.py              # Rich CLI with download/process/search commands
-│   ├── config.py           # Hardcoded configuration optimized for Japanese
-│   ├── processor.py        # Main Docling pipeline with vision models
-│   ├── image_processor.py  # SHA-256 image extraction and storage
-│   ├── vector_db.py        # Milvus operations with enhanced metadata
-│   ├── query.py           # Search interface with image indicators
-│   └── downloader.py      # Model download with progress tracking
-├── test_docs/             # Real Japanese PDFs for evaluation (martial arts texts)
-├── .models/               # Downloaded models (excluded from git)
-├── .database/             # Milvus Lite database (excluded from git)
-└── output/                # Processing outputs (excluded from git)
-```
 
 ## License
 
@@ -1078,14 +769,3 @@ This project uses several open-source libraries and models:
 - **Milvus**: [Apache 2.0 License](https://github.com/milvus-io/milvus/blob/master/LICENSE)
 - **Sentence Transformers**: [Apache 2.0 License](https://github.com/UKPLab/sentence-transformers/blob/master/LICENSE)
 - **BGE-M3**: [MIT License](https://huggingface.co/BAAI/bge-m3)
-
-## Acknowledgments
-
-- **IBM Docling & Granite Teams**: Document processing and vision models
-- **Milvus Team**: Vector database capabilities
-- **HuggingFace**: Model hosting and transformers library
-- **University of Hawaii**: Historical Japanese document access
-
----
-
-_Built for Japanese document processing and LLM training workflows_

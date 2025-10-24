@@ -20,7 +20,6 @@ Based on BGE-M3 embeddings (1024 dimensions) for Japanese document processing.
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List
 
 import numpy as np
 
@@ -36,7 +35,7 @@ class QuantizationMethod:
     compression_ratio: float  # Storage reduction ratio
     description: str
     implementation_complexity: str  # "Simple", "Moderate", "Complex"
-    supported_databases: List[str] = field(default_factory=list)
+    supported_databases: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -74,7 +73,7 @@ class QuantizationAnalyzer:
         self.collection = collection
         self.methods = self._define_quantization_methods()
 
-    def _define_quantization_methods(self) -> Dict[str, QuantizationMethod]:
+    def _define_quantization_methods(self) -> dict[str, QuantizationMethod]:
         """Define all quantization methods to analyze."""
         return {
             "float32": QuantizationMethod(
@@ -226,14 +225,14 @@ class QuantizationAnalyzer:
             estimated_accuracy_loss=f"{(1 - method.accuracy_retention) * 100:.1f}%",
         )
 
-    def analyze_all_methods(self) -> Dict[str, StorageCalculation]:
+    def analyze_all_methods(self) -> dict[str, StorageCalculation]:
         """Analyze storage requirements for all quantization methods."""
         results = {}
         for method_key, method in self.methods.items():
             results[method_key] = self.calculate_storage_for_method(method)
         return results
 
-    def generate_comparison_table(self, results: Dict[str, StorageCalculation]) -> str:
+    def generate_comparison_table(self, results: dict[str, StorageCalculation]) -> str:
         """Generate a markdown comparison table."""
 
         table = """# Vector Quantization Storage Analysis
@@ -241,7 +240,7 @@ class QuantizationAnalyzer:
 ## Collection Configuration
 
 - **Books**: {num_books:,} books
-- **Pages per Book**: {pages_per_book} pages  
+- **Pages per Book**: {pages_per_book} pages
 - **Characters per Page**: {chars_per_page} chars (Japanese mixed content)
 - **Chunk Size**: {chunk_size} characters with {overlap_percent}% overlap
 - **Chunks per Book**: {chunks_per_book:,} chunks
@@ -272,7 +271,7 @@ class QuantizationAnalyzer:
 
         return table
 
-    def generate_detailed_analysis(self, results: Dict[str, StorageCalculation]) -> str:
+    def generate_detailed_analysis(self, results: dict[str, StorageCalculation]) -> str:
         """Generate detailed analysis with implementation notes."""
 
         analysis = """
@@ -302,7 +301,7 @@ class QuantizationAnalyzer:
 
         return analysis
 
-    def generate_recommendations(self, results: Dict[str, StorageCalculation]) -> str:
+    def generate_recommendations(self, results: dict[str, StorageCalculation]) -> str:
         """Generate recommendations based on use cases."""
 
         recommendations = """
@@ -312,7 +311,7 @@ class QuantizationAnalyzer:
 **Recommendation**: **BFloat16**, **Float16**, or **INT8 Quantization**
 - BFloat16: 50% storage reduction, 98.5% accuracy retention, ML-optimized
 - Float16: 50% storage reduction, 99% accuracy retention, wider support
-- INT8: 75% storage reduction, 95% accuracy retention  
+- INT8: 75% storage reduction, 95% accuracy retention
 - All offer good balance of compression and quality
 
 ### 💰 **Cost-Optimized Deployments**
@@ -322,7 +321,7 @@ class QuantizationAnalyzer:
 - Wide database support
 
 ### ⚡ **High-Performance Search**
-**Recommendation**: **INT4** or **Binary Quantization**  
+**Recommendation**: **INT4** or **Binary Quantization**
 - 2-3x faster search performance
 - Suitable for real-time applications where some accuracy loss is acceptable
 - Massive storage savings (87.5% - 96.9% reduction)
@@ -366,7 +365,7 @@ class QuantizationAnalyzer:
 
         return recommendations
 
-    def save_results(self, results: Dict[str, StorageCalculation], output_path: Path):
+    def save_results(self, results: dict[str, StorageCalculation], output_path: Path):
         """Save detailed results to JSON file."""
         json_results = {}
         for method_key, calc in results.items():
