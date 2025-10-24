@@ -22,16 +22,13 @@ class MilvusVectorDB:
         self._setup_milvus_client()
 
     def _setup_embedding_model(self) -> None:
-        """Set up the embedding model for multilingual Japanese support."""
+        """Initialize BGE-M3 embedding model with Late Chunking support."""
         try:
             self.logger.info(
                 f"Loading embedding model: {self.config.chunking.embedding_model}"
             )
 
-            # Initialize Late Chunking processor with BGE-M3
             self.late_chunking = LateChunkingProcessor()
-
-            # Keep sentence transformers as fallback for simple embeddings
             cache_folder = (
                 Path(self.config.docling.artifacts_path).resolve() / "embeddings"
             )
@@ -48,11 +45,10 @@ class MilvusVectorDB:
             raise
 
     def _setup_milvus_client(self) -> None:
-        """Set up Milvus client for either local Milvus Lite or Zilliz Cloud."""
+        """Connect to Milvus Lite (local) or Zilliz Cloud based on configuration."""
         deployment_mode = self.config.database.deployment_mode
 
         if deployment_mode == "local":
-            # Ensure Milvus directory exists for local deployment
             milvus_dir = Path(self.config.database.milvus_uri).parent
             milvus_dir.mkdir(parents=True, exist_ok=True)
             self.logger.info(
@@ -70,7 +66,6 @@ class MilvusVectorDB:
             raise ValueError(f"Unsupported deployment mode: {deployment_mode}")
 
         try:
-            # Get connection parameters based on deployment mode
             connection_params = self.config.database.get_connection_params()
 
             self.logger.info(f"Connecting to Milvus ({deployment_mode} mode)...")
@@ -93,27 +88,24 @@ class MilvusVectorDB:
             raise
 
     def _ensure_collection(self) -> None:
-        """Ensure the collection exists with proper schema."""
+        """Create collection if not exists with BGE-M3 schema."""
         collection_name = self.config.database.collection_name
 
-        # Check if collection exists
         if self.client.has_collection(collection_name):
             self.logger.debug(f"Collection '{collection_name}' already exists")
             return
-
-        # Create collection with proper schema
         self.logger.info(f"Creating collection: {collection_name}")
         self.client.create_collection(
             collection_name=collection_name,
             dimension=self.config.database.embedding_dimension,
-            metric_type="IP",  # Inner product for cosine similarity
+            metric_type="IP",
             consistency_level=self.config.database.consistency_level,
-            auto_id=True,  # Enable auto-generated IDs
+            auto_id=True,
         )
         self.logger.info(f"Collection '{collection_name}' created successfully")
 
     def generate_embedding(self, text: str) -> list[float]:
-        """Generate embedding for a text string."""
+        """Convert text to BGE-M3 embedding vector."""
         try:
             embedding = self.embedding_model.encode(text, convert_to_tensor=False)
             return embedding.tolist()
@@ -128,18 +120,16 @@ class MilvusVectorDB:
         metadata: Optional[dict] = None,
         chunk_metadata: Optional[list[dict]] = None,
     ) -> bool:
-        """Insert document chunks into Milvus with embeddings."""
+        """Store document chunks with embeddings and metadata in Milvus."""
         try:
             collection_name = self.config.database.collection_name
             data = []
 
             for i, chunk in enumerate(text_chunks):
-                if not chunk.strip():  # Skip empty chunks
+                if not chunk.strip():
                     continue
 
                 embedding = self.generate_embedding(chunk)
-
-                # Prepare document data (no 'id' field since auto_id=True)
                 doc_data = {
                     "vector": embedding,
                     "text": chunk,
@@ -147,7 +137,6 @@ class MilvusVectorDB:
                     "chunk_index": i,
                 }
 
-                # Add document-level metadata if provided
                 if metadata:
                     doc_data.update(
                         {
@@ -157,8 +146,6 @@ class MilvusVectorDB:
                             "processing_time": metadata.get("processing_time", 0.0),
                         }
                     )
-
-                # Add chunk-level metadata (including image information)
                 if chunk_metadata and i < len(chunk_metadata):
                     chunk_meta = chunk_metadata[i]
                     doc_data.update(
@@ -168,10 +155,9 @@ class MilvusVectorDB:
                         }
                     )
 
-                    # Add image hashes for this chunk
                     if chunk_meta.get("images"):
                         image_hashes = [img["hash"] for img in chunk_meta["images"]]
-                        doc_data["image_hashes"] = image_hashes[:5]  # Limit to 5 hashes
+                        doc_data["image_hashes"] = image_hashes[:5]
 
                 data.append(doc_data)
 
@@ -197,21 +183,17 @@ class MilvusVectorDB:
         metadata: Optional[dict] = None,
         max_chunk_length: int = 800,
     ) -> bool:
-        """Insert document using Late Chunking for better context preservation."""
+        """Store document using Late Chunking for improved context preservation."""
         try:
             collection_name = self.config.database.collection_name
-
-            # Use Late Chunking to process the document
             chunks, chunk_embeddings = self.late_chunking.process_document(
                 full_document, max_chunk_length
             )
 
             data = []
             for i, (chunk, embedding) in enumerate(zip(chunks, chunk_embeddings)):
-                if not chunk.strip():  # Skip empty chunks
+                if not chunk.strip():
                     continue
-
-                # Prepare document data (no 'id' field since auto_id=True)
                 doc_data = {
                     "vector": embedding.tolist()
                     if hasattr(embedding, "tolist")
@@ -219,10 +201,8 @@ class MilvusVectorDB:
                     "text": chunk,
                     "document_id": doc_id,
                     "chunk_index": i,
-                    "chunking_method": "late_chunking",  # Track chunking method
+                    "chunking_method": "late_chunking",
                 }
-
-                # Add document-level metadata if provided
                 if metadata:
                     doc_data.update(
                         {
@@ -255,19 +235,14 @@ class MilvusVectorDB:
     def search_similar(
         self, query: str, limit: int = 5, document_filter: Optional[str] = None
     ) -> list[dict]:
-        """Search for similar text chunks in the database."""
+        """Find similar text chunks using embedding similarity search."""
         try:
             collection_name = self.config.database.collection_name
             query_embedding = self.generate_embedding(query)
 
-            # Milvus search configuration uses IP (inner product) metric
-
-            # Add document filter if specified
             expr = None
             if document_filter:
                 expr = f"document_id == '{document_filter}'"
-
-            # Create search parameters
             search_kwargs = {
                 "collection_name": collection_name,
                 "data": [query_embedding],
@@ -282,13 +257,10 @@ class MilvusVectorDB:
                 ],
             }
 
-            # Add filter if specified
             if expr:
                 search_kwargs["filter"] = expr
 
             results = self.client.search(**search_kwargs)
-
-            # Format results
             formatted_results = []
             for result in results[0]:
                 entity = result["entity"]
@@ -301,7 +273,6 @@ class MilvusVectorDB:
                     "has_images": entity.get("has_images", False),
                 }
 
-                # Include image hashes if present
                 if entity.get("image_hashes"):
                     formatted_result["image_hashes"] = entity["image_hashes"]
 
@@ -314,14 +285,13 @@ class MilvusVectorDB:
             return []
 
     def get_collection_stats(self) -> dict:
-        """Get statistics about the collection."""
+        """Return basic collection information and status."""
         try:
             collection_name = self.config.database.collection_name
 
             if not self.client.has_collection(collection_name):
                 return {"exists": False}
 
-            # Get collection info (simplified stats)
             stats = {
                 "exists": True,
                 "name": collection_name,
@@ -335,11 +305,10 @@ class MilvusVectorDB:
             return {"exists": False, "error": str(e)}
 
     def delete_document(self, doc_id: str) -> bool:
-        """Delete all chunks for a specific document."""
+        """Remove all chunks belonging to specified document."""
         try:
             collection_name = self.config.database.collection_name
 
-            # Delete using expression filter
             self.client.delete(
                 collection_name=collection_name, expr=f"document_id == '{doc_id}'"
             )
@@ -352,10 +321,9 @@ class MilvusVectorDB:
             return False
 
     def close(self) -> None:
-        """Close the Milvus client connection."""
+        """Clean up Milvus client resources."""
         try:
             if hasattr(self, "client"):
-                # MilvusClient doesn't have explicit close method for Lite
                 self.logger.debug("Milvus client closed")
         except Exception as e:
             self.logger.error(f"Error closing Milvus client: {e}")

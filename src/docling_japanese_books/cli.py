@@ -4,7 +4,6 @@ import logging
 import sys
 from pathlib import Path
 
-# Built-in typing support for Python 3.9+
 import click
 from rich.console import Console
 from rich.logging import RichHandler
@@ -16,7 +15,7 @@ from .processor import DocumentProcessor
 
 
 def setup_logging(level: str = "INFO") -> None:
-    """Set up logging with rich formatting."""
+    """Configure logging with rich console formatting and tracebacks."""
     logging.basicConfig(
         level=getattr(logging, level.upper()),
         format="%(message)s",
@@ -26,9 +25,8 @@ def setup_logging(level: str = "INFO") -> None:
 
 
 def display_config_panel(console: Console, directory: Path) -> None:
-    """Display configuration panel."""
+    """Display current configuration in formatted panel."""
     console.print()
-    # Determine vision status and model
     vision_status = "Enabled" if config.docling.enable_vision else "Disabled"
     vision_display = (
         f"{vision_status} ({config.docling.vision_model})"
@@ -36,7 +34,7 @@ def display_config_panel(console: Console, directory: Path) -> None:
         else "Disabled"
     )
 
-    # Database display based on deployment mode
+    # Format database connection info based on deployment mode
     db_mode = config.database.deployment_mode
     if db_mode == "cloud":
         db_display = f"Zilliz Cloud ({config.database.zilliz_cluster_id or 'cluster'})"
@@ -70,7 +68,7 @@ def display_config_panel(console: Console, directory: Path) -> None:
 def discover_and_display_files(
     processor: DocumentProcessor, directory: Path, console: Console
 ) -> list[Path]:
-    """Discover files and display summary."""
+    """Find supported files in directory and show type summary."""
     console.print()
     console.print("🔍 [yellow]Discovering files...[/yellow]")
 
@@ -81,7 +79,6 @@ def discover_and_display_files(
 
     console.print(f"📄 Found {len(files)} supported files")
 
-    # Show file types summary
     file_types = {}
     for file_path in files:
         ext = file_path.suffix.lower()
@@ -96,12 +93,12 @@ def discover_and_display_files(
 
 
 def handle_dry_run(files: list[Path], console: Console) -> None:
-    """Handle dry run display."""
+    """Show files that would be processed without executing."""
     console.print()
     console.print(
         "🔍 [yellow]Dry run - showing files that would be processed:[/yellow]"
     )
-    for i, file_path in enumerate(files[:10], 1):  # Show first 10 files
+    for i, file_path in enumerate(files[:10], 1):
         console.print(f"  {i:3d}. {file_path.name}")
     if len(files) > 10:
         console.print(f"  ... and {len(files) - 10} more files")
@@ -110,7 +107,7 @@ def handle_dry_run(files: list[Path], console: Console) -> None:
 
 
 def display_results(results, files: list[Path], console: Console) -> None:
-    """Display processing results."""
+    """Show processing statistics and error summary."""
     console.print()
     console.print(
         Panel.fit(
@@ -128,7 +125,7 @@ def display_results(results, files: list[Path], console: Console) -> None:
 
     if results.failure_count > 0:
         console.print("\n❌ [red]Failed files:[/red]")
-        for error in results.errors[:5]:  # Show first 5 errors
+        for error in results.errors[:5]:
             console.print(f"  • {error}")
         if len(results.errors) > 5:
             console.print(f"  ... and {len(results.errors) - 5} more errors")
@@ -268,7 +265,7 @@ def download(verbose: bool, force: bool) -> None:
 
 
 def _check_existing_models(console: Console, downloader: ModelDownloader) -> bool:
-    """Check if models exist and return True if all exist (skip download)."""
+    """Check existing models and return True to skip download if all exist."""
     existing_models = downloader.check_models_exist()
     if any(existing_models.values()):
         console.print("\n📦 [yellow]Existing models found:[/yellow]")
@@ -284,7 +281,7 @@ def _check_existing_models(console: Console, downloader: ModelDownloader) -> boo
 
 
 def _display_download_results(console: Console, results: dict) -> None:
-    """Display download results and summary."""
+    """Show download status for each model with success/failure counts."""
     console.print("\n📊 [bold]Download Results:[/bold]")
     for model_name, result in results.items():
         if result.success:
@@ -310,7 +307,7 @@ def _display_download_results(console: Console, results: dict) -> None:
 
 
 def _get_download_config_panel() -> str:
-    """Generate configuration panel content for downloads."""
+    """Format model information for download configuration display."""
     downloader = ModelDownloader()
     model_info = downloader.get_model_info()
 
@@ -428,7 +425,6 @@ def evaluate(output: Path, documents: Path, verbose: bool) -> None:
 
         from .embedding_evaluation import main as run_evaluation
 
-        # Temporarily modify sys.argv to pass arguments to main()
         original_argv = sys.argv[:]
         sys.argv = ["embedding_evaluation"]
         if output != Path("embedding_evaluation_results.json"):
@@ -447,7 +443,7 @@ def evaluate(output: Path, documents: Path, verbose: bool) -> None:
 
 
 def _display_current_config(console: Console) -> None:
-    """Display current database configuration."""
+    """Show active database mode and connection settings."""
     current_mode = config.database.deployment_mode
     console.print(f"📊 Current mode: [yellow]{current_mode}[/yellow]")
 
@@ -468,7 +464,7 @@ def _display_current_config(console: Console) -> None:
 
 
 def _show_cloud_instructions(console: Console) -> None:
-    """Show Zilliz Cloud configuration instructions."""
+    """Display Zilliz Cloud environment variable setup guide."""
     console.print("💡 [bold]Zilliz Cloud Configuration:[/bold]")
     console.print("Set environment variables or use command options:")
     console.print("  [cyan]export MILVUS_DEPLOYMENT_MODE=cloud[/cyan]")
@@ -485,7 +481,7 @@ def _show_cloud_instructions(console: Console) -> None:
 def _test_database_connection(
     console: Console, mode: str, cloud_uri: str, api_key: str, cluster_id: str
 ) -> None:
-    """Test database connection with provided or current settings."""
+    """Validate database connectivity with given or existing configuration."""
     import os
     from importlib import reload
 
@@ -493,7 +489,6 @@ def _test_database_connection(
 
     console.print("🧪 Testing database connection...")
 
-    # Temporarily update environment if parameters provided
     if mode:
         os.environ["MILVUS_DEPLOYMENT_MODE"] = mode
     if cloud_uri:
@@ -503,10 +498,7 @@ def _test_database_connection(
     if cluster_id:
         os.environ["ZILLIZ_CLUSTER_ID"] = cluster_id
 
-    # Reload config to pick up environment changes
-    reload(config_module)
-
-    # Test connection
+    reload(config_module)  # Apply environment changes
     from .vector_db import MilvusVectorDB
 
     vector_db = MilvusVectorDB()

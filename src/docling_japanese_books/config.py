@@ -3,60 +3,51 @@
 import os
 from pathlib import Path
 
-# Built-in typing support for Python 3.9+
 from pydantic import BaseModel, Field
 
 
 class DoclingConfig(BaseModel):
-    """Docling processing configuration with hardcoded settings."""
+    """Document processing configuration optimized for Japanese content."""
 
-    # Model settings - hardcoded for consistency
     artifacts_path: str = Field(
         default=".models",
-        description="Path to store Docling models in project directory",
+        description="Local model cache directory",
     )
-
-    # PDF Processing options
-    enable_ocr: bool = Field(default=True, description="Enable OCR processing")
+    enable_ocr: bool = Field(default=True, description="OCR for text extraction")
     enable_vision: bool = Field(
         default=False,
-        description="Enable vision model processing for image description",
+        description="Vision model for image descriptions",
     )
     do_table_structure: bool = Field(
-        default=True, description="Enable table structure extraction"
+        default=True, description="Extract table structure"
     )
     do_cell_matching: bool = Field(
-        default=True, description="Enable PDF cell matching for tables"
+        default=True, description="Match table cells in PDFs"
     )
     generate_page_images: bool = Field(
         default=True,
-        description="Generate page images for HTML output and separate storage",
+        description="Generate page images for output",
     )
-
-    # Vision model settings for Japanese books
     vision_model: str = Field(
         default="granite",
-        description="Vision model to use: granite, smolvlm, or custom",
+        description="Vision model type",
     )
-    # https://huggingface.co/ibm-granite/granite-vision-3.3-2b
     vision_model_repo_id: str = Field(
         default="ibm-granite/granite-vision-3.3-2b",
-        description="HuggingFace model repository ID for vision model",
+        description="HuggingFace model ID for image descriptions",
     )
     vision_prompt: str = Field(
         default="Describe this image in detail, paying special attention to any Japanese text, characters, or cultural elements. Include information about layout, visual elements, and any text content visible in the image.",
-        description="Prompt for vision model when describing images",
+        description="Vision model prompt optimized for Japanese content",
     )
     images_scale: float = Field(
-        default=2.0, description="Scale factor for image processing quality"
+        default=2.0, description="Image processing scale factor"
     )
-
-    # Resource limits
-    max_file_size_mb: int = Field(default=100, description="Maximum file size in MB")
+    max_file_size_mb: int = Field(
+        default=100, description="Maximum file size limit (MB)"
+    )
     max_num_pages: int = Field(default=1000, description="Maximum pages per document")
-    thread_count: int = Field(default=4, description="Number of processing threads")
-
-    # Supported formats - hardcoded list
+    thread_count: int = Field(default=4, description="Processing thread count")
     supported_formats: list[str] = Field(
         default=[
             ".pdf",
@@ -70,64 +61,51 @@ class DoclingConfig(BaseModel):
             ".jpg",
             ".jpeg",
         ],
-        description="Supported file formats",
+        description="Supported file extensions",
     )
 
 
 class DatabaseConfig(BaseModel):
-    """Database configuration supporting both local Milvus Lite and Zilliz Cloud."""
+    """Vector database configuration for Milvus Lite and Zilliz Cloud."""
 
-    # Database type selection
-    database_type: str = Field(default="milvus", description="Database type")
-
-    # Local Milvus Lite configuration
+    database_type: str = Field(default="milvus", description="Vector database type")
     milvus_uri: str = Field(
         default=".database/docling_documents.db",
-        description="Milvus Lite database URI in project directory (local mode)",
+        description="Local Milvus Lite database path",
     )
-
-    # Zilliz Cloud configuration
     zilliz_cloud_uri: str = Field(
         default_factory=lambda: os.getenv("ZILLIZ_CLOUD_URI", ""),
-        description="Zilliz Cloud endpoint URI (cloud mode) - format: https://in03-<cluster-id>.serverless.gcp-us-west1.cloud.zilliz.com",
+        description="Zilliz Cloud endpoint URI",
     )
     zilliz_api_key: str = Field(
         default_factory=lambda: os.getenv("ZILLIZ_API_KEY", ""),
-        description="Zilliz Cloud API key (cloud mode) - get from Zilliz Cloud console",
+        description="Zilliz Cloud API key",
     )
     zilliz_cluster_id: str = Field(
         default_factory=lambda: os.getenv("ZILLIZ_CLUSTER_ID", ""),
-        description="Zilliz Cloud cluster ID (cloud mode)",
+        description="Zilliz Cloud cluster identifier",
     )
-
-    # Deployment mode can also be set via environment variable
     deployment_mode: str = Field(
         default_factory=lambda: os.getenv("MILVUS_DEPLOYMENT_MODE", "local"),
-        description="Deployment mode: 'local' (Milvus Lite) or 'cloud' (Zilliz Cloud)",
+        description="Database deployment mode: 'local' or 'cloud'",
     )
-
-    # Collection settings
     collection_name: str = Field(
-        default="docling_japanese_books", description="Milvus collection name"
+        default="docling_japanese_books", description="Vector database collection name"
     )
-
-    # Vector settings
     embedding_dimension: int = Field(
         default=1024,
-        description="Embedding dimension for BAAI/bge-m3 multilingual model",
+        description="BGE-M3 embedding vector dimension",
     )
-
-    # Connection settings
     connection_timeout: int = Field(
-        default=30, description="Database connection timeout"
+        default=30, description="Database connection timeout (seconds)"
     )
     consistency_level: str = Field(
         default="Strong",
-        description="Milvus consistency level (Strong, Session, Bounded, Eventually)",
+        description="Milvus consistency level",
     )
 
     def get_connection_uri(self) -> str:
-        """Get the appropriate connection URI based on deployment mode."""
+        """Return connection URI for current deployment mode."""
         if self.deployment_mode == "cloud":
             if not self.zilliz_cloud_uri:
                 raise ValueError(
@@ -138,7 +116,7 @@ class DatabaseConfig(BaseModel):
             return self.milvus_uri
 
     def get_connection_params(self) -> dict:
-        """Get connection parameters for Milvus client."""
+        """Build Milvus client connection parameters."""
         params = {
             "uri": self.get_connection_uri(),
         }
@@ -154,104 +132,86 @@ class DatabaseConfig(BaseModel):
 
 
 class ChunkingConfig(BaseModel):
-    """Chunking configuration with hardcoded settings."""
+    """Text chunking and embedding configuration for Japanese documents."""
 
-    # IBM Granite Docling model optimized for document processing
-    # This model is specifically designed for document understanding tasks
-    # and provides better tokenization for structured documents
-    # https://huggingface.co/ibm-granite/granite-docling-258M
     tokenizer_model: str = Field(
         default="ibm-granite/granite-docling-258M",
-        description="IBM Granite Docling model for document-aware tokenization",
+        description="Granite Docling model for document tokenization",
     )
-
-    # Embedding model for vector storage (separate from tokenizer)
-    # BGE-M3: Best multilingual model for Japanese, Chinese, Korean support
-    # https://huggingface.co/BAAI/bge-m3
     embedding_model: str = Field(
         default="BAAI/bge-m3",
-        description="BGE-M3 multilingual embedding model with Japanese support",
+        description="BGE-M3 multilingual embedding model",
     )
-
-    # Chunk settings
     max_chunk_tokens: int = Field(default=512, description="Maximum tokens per chunk")
     chunk_overlap: int = Field(default=50, description="Token overlap between chunks")
     min_chunk_length: int = Field(
-        default=20, description="Minimum chunk length in tokens"
+        default=20, description="Minimum chunk length (tokens)"
     )
-
-    # Chunking strategy
     chunking_strategy: str = Field(
-        default="hybrid", description="Chunking strategy (hybrid/hierarchical)"
+        default="hybrid", description="Chunking strategy type"
     )
     merge_list_items: bool = Field(
-        default=True, description="Merge list items in hierarchical chunking"
+        default=True, description="Merge list items during chunking"
     )
-
-    # Late Chunking for improved context preservation (recommended for Japanese text)
     use_late_chunking: bool = Field(
         default=True,
-        description="Use Late Chunking for better context preservation in Japanese documents",
+        description="Enable Late Chunking for better context preservation",
     )
     merge_peers: bool = Field(
-        default=True, description="Merge peer chunks in hybrid chunking"
+        default=True, description="Merge peer chunks in hybrid strategy"
     )
 
 
 class OutputConfig(BaseModel):
-    """Output configuration with hardcoded settings."""
+    """File output format and directory configuration."""
 
-    # Output formats - hardcoded for LLM training
     output_formats: list[str] = Field(
         default=["json", "markdown", "jsonl"],
-        description="Output formats to generate",
+        description="Document export formats",
     )
-
-    # Output directories
     output_base_dir: str = Field(
         default="./output", description="Base output directory"
     )
-    raw_output_dir: str = Field(default="raw", description="Raw output subdirectory")
+    raw_output_dir: str = Field(
+        default="raw", description="Raw document output subdirectory"
+    )
     processed_output_dir: str = Field(
-        default="processed", description="Processed output subdirectory"
+        default="processed", description="Processed document subdirectory"
     )
     chunks_output_dir: str = Field(
-        default="chunks", description="Chunks output subdirectory"
+        default="chunks", description="Text chunks subdirectory"
     )
     images_output_dir: str = Field(
-        default="images", description="Images output subdirectory for separate storage"
+        default="images", description="Extracted images subdirectory"
     )
-
-    # File naming
     include_timestamp: bool = Field(
-        default=True, description="Include timestamp in output filenames"
+        default=True, description="Add timestamps to output filenames"
     )
     include_metadata: bool = Field(
-        default=True, description="Include metadata in output"
+        default=True, description="Include document metadata in outputs"
     )
 
 
 class ProcessingConfig(BaseModel):
-    """Processing configuration with hardcoded settings."""
+    """Document processing behavior and performance settings."""
 
-    # Batch processing
-    batch_size: int = Field(default=10, description="Documents per batch")
+    batch_size: int = Field(default=10, description="Documents per processing batch")
     max_workers: int = Field(default=4, description="Maximum worker processes")
-
-    # Error handling
     continue_on_error: bool = Field(
-        default=True, description="Continue processing on individual document errors"
+        default=True, description="Continue batch processing after individual failures"
     )
-    max_retries: int = Field(default=2, description="Maximum retry attempts")
-    retry_delay: float = Field(default=1.0, description="Delay between retries")
-
-    # Progress reporting
-    show_progress: bool = Field(default=True, description="Show progress bars")
-    log_level: str = Field(default="INFO", description="Logging level")
+    max_retries: int = Field(
+        default=2, description="Maximum retry attempts per document"
+    )
+    retry_delay: float = Field(
+        default=1.0, description="Delay between retries (seconds)"
+    )
+    show_progress: bool = Field(default=True, description="Display progress bars")
+    log_level: str = Field(default="INFO", description="Logging verbosity level")
 
 
 class Config(BaseModel):
-    """Main configuration combining all settings."""
+    """Main configuration object combining all settings."""
 
     docling: DoclingConfig = Field(default_factory=DoclingConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
@@ -260,11 +220,11 @@ class Config(BaseModel):
     processing: ProcessingConfig = Field(default_factory=ProcessingConfig)
 
     def get_output_path(self, subdirectory: str) -> Path:
-        """Get the full output path for a subdirectory."""
+        """Build full path for output subdirectory."""
         return Path(self.output.output_base_dir) / subdirectory
 
     def ensure_output_dirs(self) -> None:
-        """Ensure all output directories exist."""
+        """Create all required output directories."""
         base_dir = Path(self.output.output_base_dir)
         base_dir.mkdir(exist_ok=True)
 
@@ -277,7 +237,7 @@ class Config(BaseModel):
             (base_dir / subdir).mkdir(exist_ok=True)
 
     def is_supported_file(self, file_path: Path) -> bool:
-        """Check if file format is supported."""
+        """Check if file extension is supported."""
         return file_path.suffix.lower() in self.docling.supported_formats
 
 

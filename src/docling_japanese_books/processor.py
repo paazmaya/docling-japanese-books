@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-# Built-in typing support for Python 3.9+
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import (
     PdfPipelineOptions,
@@ -42,7 +41,7 @@ class DocumentProcessor:
     """Main document processor using Docling."""
 
     def __init__(self) -> None:
-        """Initialize the document processor with hardcoded settings."""
+        """Initialize processor with preconfigured settings for Japanese documents."""
         self.logger = logging.getLogger(__name__)
         self.config = config
         self._setup_tokenizer()
@@ -53,12 +52,11 @@ class DocumentProcessor:
         self._ensure_directories()
 
     def _setup_tokenizer(self) -> None:
-        """Set up the Granite Docling tokenizer."""
+        """Load Granite Docling tokenizer with local caching."""
         try:
             self.logger.info(
                 f"Loading tokenizer: {self.config.chunking.tokenizer_model}"
             )
-            # Use local cache directory
             cache_dir = (
                 Path(self.config.docling.artifacts_path).resolve() / "tokenizers"
             )
@@ -75,7 +73,7 @@ class DocumentProcessor:
             self.tokenizer = None
 
     def _setup_chunker(self) -> None:
-        """Set up the document chunker."""
+        """Initialize hierarchical document chunker."""
         try:
             self.chunker = HierarchicalChunker()
             self.logger.info("Document chunker initialized")
@@ -84,7 +82,7 @@ class DocumentProcessor:
             raise
 
     def _setup_vector_db(self) -> None:
-        """Set up the Milvus vector database."""
+        """Initialize Milvus vector database connection."""
         try:
             self.vector_db = MilvusVectorDB()
             self.logger.info("Milvus vector database initialized")
@@ -93,7 +91,7 @@ class DocumentProcessor:
             raise
 
     def _setup_image_processor(self) -> None:
-        """Set up the image processor."""
+        """Initialize image extraction and annotation processor."""
         try:
             self.image_processor = ImageProcessor()
             self.logger.info("Image processor initialized")
@@ -102,8 +100,7 @@ class DocumentProcessor:
             raise
 
     def _setup_docling(self) -> None:
-        """Set up Docling converter with hardcoded pipeline options."""
-        # Configure PDF pipeline options
+        """Configure Docling converter with vision model support for Japanese documents."""
         pipeline_options = PdfPipelineOptions(
             artifacts_path=self.config.docling.artifacts_path,
             do_ocr=self.config.docling.enable_ocr,
@@ -111,19 +108,14 @@ class DocumentProcessor:
             generate_page_images=self.config.docling.generate_page_images,
         )
 
-        # Configure table structure options
         if self.config.docling.do_table_structure:
             pipeline_options.table_structure_options.do_cell_matching = (
                 self.config.docling.do_cell_matching
             )
-
-        # Configure vision model for image description using Granite Vision 3.3 2B
         if self.config.docling.enable_vision:
             pipeline_options.do_picture_description = True
             pipeline_options.images_scale = self.config.docling.images_scale
             pipeline_options.generate_picture_images = True
-
-            # Create custom vision configuration to ensure proper model downloading
             from docling.datamodel.pipeline_options import PictureDescriptionVlmOptions
 
             pipeline_options.picture_description_options = PictureDescriptionVlmOptions(
@@ -139,24 +131,15 @@ class DocumentProcessor:
                 f"Vision model enabled: {self.config.docling.vision_model_repo_id}"
             )
         else:
-            # Enable basic image generation without vision model descriptions
             pipeline_options.images_scale = self.config.docling.images_scale
             pipeline_options.generate_picture_images = True
-
             self.logger.info("Basic image generation enabled (vision models disabled)")
-
-        # Set up artifacts path for models in project directory
-        from pathlib import Path
-
         artifacts_path = Path(self.config.docling.artifacts_path).resolve()
         artifacts_path.mkdir(parents=True, exist_ok=True)
-
-        # Configure pipeline with artifacts path
         pipeline_options.artifacts_path = artifacts_path
 
         self.logger.info(f"Models will be stored in: {artifacts_path}")
 
-        # Create document converter
         self.converter = DocumentConverter(
             format_options={
                 InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
@@ -166,17 +149,16 @@ class DocumentProcessor:
         self.logger.info("Docling converter initialized with vision model support")
 
     def _ensure_directories(self) -> None:
-        """Ensure output directories exist."""
+        """Create required output directories."""
         self.config.ensure_output_dirs()
         self.logger.debug("Output directories ensured")
 
     def discover_files(self, directory: Path) -> list[Path]:
-        """Discover supported files in the directory."""
+        """Find supported files recursively, filtering by size limits."""
         files = []
 
         for file_path in directory.rglob("*"):
             if file_path.is_file() and self.config.is_supported_file(file_path):
-                # Check file size
                 file_size_mb = file_path.stat().st_size / (1024 * 1024)
                 if file_size_mb > self.config.docling.max_file_size_mb:
                     self.logger.warning(
@@ -190,11 +172,10 @@ class DocumentProcessor:
         return files
 
     def process_files(self, files: list[Path]) -> ProcessingResults:
-        """Process a list of files."""
+        """Process files in batches with progress tracking."""
         results = ProcessingResults()
         start_time = time.time()
 
-        # Create progress bar
         with Progress(
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
@@ -203,20 +184,15 @@ class DocumentProcessor:
             TimeElapsedColumn(),
         ) as progress:
             task = progress.add_task("Processing documents...", total=len(files))
-
-            # Process files in batches
             batch_size = self.config.processing.batch_size
             for i in range(0, len(files), batch_size):
                 batch = files[i : i + batch_size]
                 batch_results = self._process_batch(batch)
 
-                # Update results
                 results.success_count += batch_results.success_count
                 results.partial_success_count += batch_results.partial_success_count
                 results.failure_count += batch_results.failure_count
                 results.errors.extend(batch_results.errors)
-
-                # Update progress
                 progress.update(task, advance=len(batch))
 
         results.total_time = time.time() - start_time
@@ -224,19 +200,16 @@ class DocumentProcessor:
         return results
 
     def _process_batch(self, files: list[Path]) -> ProcessingResults:
-        """Process a batch of files."""
+        """Convert batch of documents via Docling with error handling."""
         results = ProcessingResults()
 
         try:
-            # Convert documents using Docling
             conv_results = self.converter.convert_all(
                 files,
                 raises_on_error=False,
                 max_num_pages=self.config.docling.max_num_pages,
                 max_file_size=self.config.docling.max_file_size_mb * 1024 * 1024,
             )
-
-            # Process results
             for conv_result in conv_results:
                 if conv_result.status.name == "SUCCESS":
                     results.success_count += 1
@@ -244,7 +217,6 @@ class DocumentProcessor:
                 elif conv_result.status.name == "PARTIAL_SUCCESS":
                     results.partial_success_count += 1
                     self._save_document(conv_result)
-                    # Log partial success errors
                     for error in conv_result.errors:
                         error_msg = f"{conv_result.input.file}: {error.error_message}"
                         results.errors.append(error_msg)
@@ -256,7 +228,6 @@ class DocumentProcessor:
                     self.logger.error(error_msg)
 
         except Exception as e:
-            # Handle batch-level errors
             results.failure_count += len(files)
             error_msg = f"Batch processing failed: {e}"
             results.errors.append(error_msg)
@@ -265,7 +236,7 @@ class DocumentProcessor:
         return results
 
     def _process_images(self, conv_result, doc_filename) -> list:
-        """Process and extract images from document if vision is enabled."""
+        """Extract and store document images with vision annotations."""
         extracted_images = []
         if self.config.docling.enable_vision and conv_result.document.pictures:
             extracted_images = self.image_processor.extract_and_store_images(
@@ -281,7 +252,7 @@ class DocumentProcessor:
         return extracted_images
 
     def _create_image_refs_mapping(self, extracted_images) -> dict:
-        """Create mapping of image references to their metadata."""
+        """Map image self-references to metadata for chunk enhancement."""
         image_refs = {}
         if extracted_images:
             for img in extracted_images:
@@ -295,7 +266,7 @@ class DocumentProcessor:
         return image_refs
 
     def _enhance_chunk_with_images(self, chunk_text, chunk_images) -> str:
-        """Add image references to chunk text for better embedding."""
+        """Append image references and vision annotations to chunk text."""
         enhanced_text = chunk_text
 
         for img_info in chunk_images:
@@ -304,11 +275,8 @@ class DocumentProcessor:
                 enhanced_text += f" - {img_info['caption']}"
             enhanced_text += "]"
 
-            # Add vision annotations if available
             if img_info["annotations"]:
-                for annotation in img_info["annotations"][
-                    :2
-                ]:  # Limit to first 2 annotations
+                for annotation in img_info["annotations"][:2]:
                     if isinstance(annotation, dict) and "text" in annotation:
                         enhanced_text += (
                             f"\nImage description: {annotation['text'][:200]}"
@@ -319,7 +287,7 @@ class DocumentProcessor:
     def _create_enhanced_chunks(
         self, chunks, extracted_images
     ) -> tuple[list[str], list[dict]]:
-        """Create enhanced chunks that include image references when present."""
+        """Generate text chunks enriched with image information and metadata."""
         chunk_texts = []
         chunk_metadata = []
 
@@ -330,13 +298,10 @@ class DocumentProcessor:
                 continue
 
             chunk_images = []
-            # Check if this chunk references any images
             if hasattr(chunk, "refs") and chunk.refs and image_refs:
                 for ref in chunk.refs:
                     if ref in image_refs:
                         chunk_images.append(image_refs[ref])
-
-            # Enhance text with image information
             enhanced_text = self._enhance_chunk_with_images(chunk.text, chunk_images)
 
             chunk_texts.append(enhanced_text)
@@ -351,7 +316,7 @@ class DocumentProcessor:
         return chunk_texts, chunk_metadata
 
     def _prepare_metadata(self, file_path, chunk_texts, extracted_images) -> dict:
-        """Prepare document metadata including image analysis."""
+        """Create document metadata with processing stats and Japanese content analysis."""
         metadata = {
             "file_path": str(file_path),
             "file_size": file_path.stat().st_size,
@@ -363,7 +328,6 @@ class DocumentProcessor:
             "vision_enabled": self.config.docling.enable_vision,
         }
 
-        # Add Japanese content analysis if images were processed
         if extracted_images:
             all_annotations = []
             for img in extracted_images:
@@ -378,7 +342,7 @@ class DocumentProcessor:
     def _save_output_formats(
         self, conv_result, doc_filename, extracted_images, chunk_texts, metadata
     ):
-        """Save document in all requested output formats."""
+        """Export document to configured formats (JSON, Markdown, JSONL)."""
         raw_dir = self.config.get_output_path(self.config.output.raw_output_dir)
         processed_dir = self.config.get_output_path(
             self.config.output.processed_output_dir
@@ -400,7 +364,7 @@ class DocumentProcessor:
     def _save_enhanced_markdown(
         self, document, doc_filename, extracted_images, processed_dir
     ):
-        """Save markdown with image references."""
+        """Export markdown with appended image reference section."""
         markdown_content = document.export_to_markdown()
         if extracted_images:
             image_refs = self.image_processor.get_image_references_for_text(
@@ -415,7 +379,7 @@ class DocumentProcessor:
     def _save_chunks_jsonl(
         self, doc_filename, chunk_texts, metadata, extracted_images, chunks_dir
     ):
-        """Save document chunks as JSONL with image info."""
+        """Export chunks to JSONL format with metadata and image associations."""
         jsonl_path = chunks_dir / f"{doc_filename}_chunks.jsonl"
         with jsonl_path.open("w", encoding="utf-8") as f:
             for i, chunk_text in enumerate(chunk_texts):
@@ -429,33 +393,25 @@ class DocumentProcessor:
                 f.write(str(chunk_data) + "\n")
 
     def _save_document(self, conv_result) -> None:
-        """Save processed document in multiple formats and store in vector database."""
+        """Process document with Late Chunking, save outputs, and store in vector database."""
         doc_filename = conv_result.input.file.stem
         file_path = conv_result.input.file
 
         try:
-            # Process images
             extracted_images = self._process_images(conv_result, doc_filename)
-
-            # Check if we should use Late Chunking for better context preservation
             use_late_chunking = (
                 hasattr(self.config.chunking, "use_late_chunking")
                 and self.config.chunking.use_late_chunking
             )
 
             if use_late_chunking:
-                # Use Late Chunking for better Japanese text processing
                 full_text = conv_result.document.export_to_markdown()
-
-                # Prepare document metadata
                 metadata = self._prepare_metadata(file_path, [], extracted_images)
-
-                # Use Late Chunking insertion method
                 success = self.vector_db.insert_document_with_late_chunking(
                     doc_id=doc_filename,
                     full_document=full_text,
                     metadata=metadata,
-                    max_chunk_length=800,  # Longer chunks for better context
+                    max_chunk_length=800,
                 )
 
                 if success:
@@ -467,24 +423,18 @@ class DocumentProcessor:
                         f"Failed to store document with Late Chunking for {doc_filename}"
                     )
 
-                # For output formats, still use traditional chunking
                 chunks = list(self.chunker.chunk(conv_result.document))
                 chunk_texts, chunk_metadata = self._create_enhanced_chunks(
                     chunks, extracted_images
                 )
             else:
-                # Traditional chunking approach
                 chunks = list(self.chunker.chunk(conv_result.document))
                 chunk_texts, chunk_metadata = self._create_enhanced_chunks(
                     chunks, extracted_images
                 )
-
-                # Prepare document metadata
                 metadata = self._prepare_metadata(
                     file_path, chunk_texts, extracted_images
                 )
-
-                # Store in vector database with image information
                 if chunk_texts:
                     success = self.vector_db.insert_document(
                         doc_id=doc_filename,
@@ -501,7 +451,6 @@ class DocumentProcessor:
                             f"Failed to store chunks in vector DB for {doc_filename}"
                         )
 
-            # Save output files
             self._save_output_formats(
                 conv_result, doc_filename, extracted_images, chunk_texts, metadata
             )
