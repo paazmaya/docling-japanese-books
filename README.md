@@ -37,40 +37,59 @@ This project provides a robust, opinionated pipeline for:
 
 ```mermaid
 flowchart TD
-    A[📁 Input Documents] --> B{Document Type}
-    B -->|PDF, DOCX, PPTX| C[🔧 Docling Processing]
-    B -->|HTML, MD, TXT| C
-    B -->|Images| C
+  A[📁 Input Documents] --> B{Document Type}
+  B -->|PDF, DOCX, PPTX| C[🔧 Docling Processing]
+  B -->|HTML, MD, TXT| C
+  B -->|Images| C
 
-    C --> D[📝 Text Extraction]
-    C --> E[🖼️ Image Extraction]
-    C --> F[📊 Table Extraction]
+  C --> D[📝 Text Extraction]
+  C --> E[🖼️ Image Extraction]
+  C --> F[📊 Table Extraction]
 
-    D --> G[🧠 IBM Granite Vision 3.3B]
-    E --> H[🔐 SHA-256 Hashing]
-    F --> D
+  D --> G[🧠 IBM Granite Vision 3.3B]
+  E --> H[🔐 SHA-256 Hashing]
+  F --> D
 
-    G --> I[📖 Japanese Text Analysis]
-    H --> J[🗂️ Deduplicated Storage]
+  G --> I[📖 Japanese Text Analysis]
+  H --> J[🗂️ Deduplicated Storage]
 
-    I --> K[✂️ Hierarchical Chunking]
-    J --> L[💾 Image Repository]
+  I --> K[✂️ Hierarchical Chunking]
+  J --> L[💾 Image Repository]
 
-    K --> M[🧮 Sentence Embeddings]
-    L --> N[📋 Image Metadata]
+  K --> M{🧮 Embedding Model}
+  M --> M1[🔹 Jina v4]
+  M --> M2[🔸 BGE-M3]
+  M --> M3[🔸 Snowflake Arctic]
+  M --> M4[🔸 all-MiniLM-L6-v2]
+  L --> N[📋 Image Metadata]
 
-    M --> O[(🔍 Milvus Vector DB)]
-    N --> O
+  M1 --> O{🗄️ Database Provider}
+  M2 --> O
+  M3 --> O
+  M4 --> O
+  N --> O
 
-    O --> P[📄 JSON Export]
-    O --> Q[📝 Markdown Export]
-    O --> R[📦 JSONL Chunks]
-    O --> S[🔍 Vector Search]
+  O --> O1[(🔍 Milvus Lite)]
+  O --> O2[(☁️ Zilliz Cloud)]
 
-    style A fill:#e1f5fe
-    style O fill:#f3e5f5
-    style G fill:#fff3e0
-    style H fill:#e8f5e8
+  O1 --> P[📄 JSON Export]
+  O1 --> Q[📝 Markdown Export]
+  O1 --> R[📦 JSONL Chunks]
+  O1 --> S[🔍 Vector Search]
+  O2 --> P
+  O2 --> Q
+  O2 --> R
+  O2 --> S
+
+  style A fill:#e1f5fe
+  style O1 fill:#f3e5f5
+  style O2 fill:#e0f7fa
+  style G fill:#fff3e0
+  style H fill:#e8f5e8
+  style M1 fill:#e8eaf6
+  style M2 fill:#fce4ec
+  style M3 fill:#f3e5f5
+  style M4 fill:#e0f2f1
 ```
 
 ## Installation
@@ -81,6 +100,11 @@ flowchart TD
 - [uv](https://github.com/astral-sh/uv) for dependency management
 - Internet connection (for model downloads)
 - ~7GB free disk space (for models)
+
+**Windows installation proved to be tricky**
+
+- `vcpkg install leptonica`, https://github.com/DanBloomberg/leptonica
+- `winget install tesseract-ocr.tesseract`, https://github.com/tesseract-ocr/tesseract
 
 ### Setup
 
@@ -135,9 +159,9 @@ All models are downloaded to `.models/` directory in the project root for reuse.
 
 ### Database and Storage
 
-**Vector Database**: Stored locally in `.database/docling_documents.db` (Milvus Lite)
-**Images**: Stored in `./output/images/[document_name]/` with SHA-256 filenames
-**Models**: Cached in `.models/` directory (excluded from git)
+- **Vector Database**: Stored locally in `.database/docling_documents.db` (Milvus Lite)
+- **Images**: Stored in `./output/images/[document_name]/` with SHA-256 filenames
+- **Models**: Cached in `.models/` directory (excluded from git)
 
 Benefits of local storage:
 
@@ -231,39 +255,6 @@ uv run docling-japanese-books evaluate --documents my_japanese_docs.json
 
 # Save results to specific file
 uv run docling-japanese-books evaluate --output detailed_results.json --verbose
-```
-
-**Current Test Documents (Automatically Processed):**
-
-- 薙刀体操法\_860420_0001.pdf - Naginata exercise methods
-- 広島県武術家伝\_1939799_0001.pdf - Hiroshima martial arts biography
-- toyoma-okugi1956.pdf - Toyama secret techniques (1956)
-
-**Evaluation Metrics:**
-
-- Japanese query performance (8 test queries on real content)
-- Context preservation between chunks
-- Processing speed comparison with document extraction
-- Cosine similarity analysis on authentic Japanese texts
-- Cross-document consistency testing
-
-**Sample Results:**
-
-```
-============================================================
-EMBEDDING EVALUATION SUMMARY
-============================================================
-Documents evaluated: 3
-Average improvement in Japanese queries: 199.7%
-Average context preservation improvement: 0.000
-Traditional Japanese score: 0.144 ± 0.050
-Late Chunking Japanese score: 0.377 ± 0.031
-
-Best improvement: user_guide (+353.2%)
-
-Recommendation:
-✅ Late Chunking shows significant improvement - RECOMMENDED for production
-============================================================
 ```
 
 ### Advanced Model Comparison: Snowflake Arctic Embed
@@ -501,114 +492,6 @@ uv run docling-japanese-books process test_docs/
 uv run docling-japanese-books search "空手道"
 uv run docling-japanese-books search "martial arts"
 ```
-
-### GitHub Actions CI/CD
-
-The project includes two complementary CI workflows:
-
-#### Fast Tests (basic-tests.yml)
-
-- **Duration**: ~10 minutes
-- **Triggers**: All pushes and PRs
-- **Coverage**: Code quality, imports, basic functionality
-- **Features**:
-  - Ruff linting and formatting checks
-  - Import validation
-  - Configuration testing
-  - Conditional integration tests on main branch
-
-#### Comprehensive Pipeline (test-pipeline.yml)
-
-- **Duration**: ~60 minutes
-- **Triggers**: Push to main, manual workflow dispatch
-- **Coverage**: Full pipeline testing with models
-- **Features**:
-  - Model download and caching (saves ~40GB between runs)
-  - Document processing with real test files
-  - Vector database validation
-  - Search functionality testing
-  - Resource monitoring and artifact collection
-
-#### CI Features
-
-- **Model Caching**: HuggingFace models cached between runs
-- **Artifact Collection**: Test results and logs uploaded for debugging
-- **Resource Monitoring**: Memory and disk usage tracking
-- **Comprehensive Logging**: Detailed output for troubleshooting
-- **Parallel Testing**: Multiple test scenarios run simultaneously
-
-### Test Coverage
-
-The test suite covers:
-
-1. **Import Validation**: All modules import correctly
-2. **Configuration**: Settings validation and consistency
-3. **Model Management**: Download, verification, and caching
-4. **Document Processing**: Multi-format document handling
-5. **Vision Models**: Image extraction and annotation
-6. **Vector Database**: Storage, retrieval, and search
-7. **CLI Interface**: All commands and options
-8. **Error Handling**: Graceful failure and recovery
-
-### Quick Commands
-
-```bash
-# Development workflow
-make install       # Install dependencies
-make download      # Download models
-make test         # Run local tests
-make lint         # Check code quality
-make format       # Format code
-
-# Processing workflow
-make process path=./documents/    # Process documents
-make search                       # Interactive search
-
-# Cleanup
-make clean        # Remove temporary files
-```
-
-## Implementation Status
-
-### ✅ Completed Features
-
-#### Core Infrastructure
-
-- ✅ **Project Setup**: Modern Python project with uv, ruff, and type hints
-- ✅ **CLI Interface**: Rich CLI with progress bars and multiple commands
-- ✅ **Configuration System**: Hardcoded settings optimized for Japanese documents
-- ✅ **Model Management**: Automatic download and caching with progress tracking
-
-#### Document Processing
-
-- ✅ **Multi-format Support**: PDF, DOCX, PPTX, HTML, Markdown, TXT, Images
-- ✅ **Docling Integration**: Full pipeline with OCR, table extraction, structure preservation
-- ✅ **Vision Models**: IBM Granite Vision 3.3 2B with Japanese-optimized prompts
-- ✅ **Image Processing**: Extract, annotate, and store with SHA-256 hashing
-
-#### Storage and Retrieval
-
-- ✅ **Vector Database**: Milvus Lite with enhanced schema for image metadata
-- ✅ **Image Storage**: Separate storage with deduplication via SHA-256 hashing
-- ✅ **Chunking**: Hierarchical chunking with image references integrated
-- ✅ **Search Interface**: Vector search with image metadata display
-
-#### Quality and Tooling
-
-- ✅ **Type Safety**: Complete type hints throughout codebase
-- ✅ **Code Quality**: Ruff linting and formatting configured
-- ✅ **Error Handling**: Comprehensive error handling with rich output
-- ✅ **Progress Tracking**: Rich progress bars for all long-running operations
-
-### 🔄 Current Implementation Details
-
-The system processes documents through this workflow:
-
-1. **Document Conversion**: Docling converts documents with vision model analysis
-2. **Image Extraction**: Images are extracted and stored with SHA-256 filenames
-3. **Content Chunking**: Text is chunked hierarchically with image references
-4. **Vector Storage**: Chunks stored in Milvus with enhanced metadata
-5. **Search**: Rich search interface showing both text and image information
 
 ## Development Roadmap
 
