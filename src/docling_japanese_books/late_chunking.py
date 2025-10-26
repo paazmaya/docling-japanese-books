@@ -205,6 +205,7 @@ class LateChunkingProcessor:
         span_annotations: list[tuple[int, int]],
         document: str,
         max_length: Optional[int] = None,
+        pooling: str = "mean",
     ) -> list[np.ndarray]:
         """Perform late chunking on token embeddings.
 
@@ -231,55 +232,48 @@ class LateChunkingProcessor:
 
         pooled_embeddings = []
         seq_len = token_embeddings.shape[1]
-
-        # Simplified span mapping (assumes uniform character-to-token distribution)
         doc_length = len(document)
-
         for char_start, char_end in span_annotations:
-            # Map character positions to approximate token positions
             token_start = int((char_start / doc_length) * seq_len)
             token_end = int((char_end / doc_length) * seq_len)
-
-            # Ensure valid token range
             token_start = max(0, token_start)
             token_end = min(seq_len, max(token_start + 1, token_end))
-
             if max_length is not None:
                 token_end = min(token_end, max_length - 1)
-
-            # Average pool tokens in the span
             if token_end > token_start:
-                chunk_embedding = token_embeddings[0, token_start:token_end].mean(dim=0)
+                chunk_tokens = token_embeddings[0, token_start:token_end]
+                if pooling == "mean":
+                    chunk_embedding = chunk_tokens.mean(dim=0)
+                elif pooling == "max":
+                    chunk_embedding = chunk_tokens.max(dim=0)[0]
+                else:
+                    raise ValueError(f"Unsupported pooling strategy: {pooling}")
                 pooled_embeddings.append(chunk_embedding.detach().cpu().numpy())
-
         return pooled_embeddings
 
     def process_document(
-        self, document: str, max_chunk_length: int = 500
+        self, document: str, max_chunk_length: int = 500, pooling: str = "mean"
     ) -> tuple[list[str], list[np.ndarray]]:
         """Process a document with Late Chunking.
 
         Args:
             document: Input document text
             max_chunk_length: Maximum characters per chunk
+            pooling: Pooling strategy ("mean" or "max")
 
         Returns:
             Tuple of (chunks, chunk_embeddings)
         """
-        # Step 1: Chunk the document to get spans
         chunks, span_annotations = self.simple_sentence_chunker(
             document, max_chunk_length
         )
-
-        # Step 2: Generate token embeddings for the full document
         token_embeddings = self.document_to_token_embeddings(document)
-
-        # Step 3: Perform late chunking
         chunk_embeddings = self.late_chunking(
-            token_embeddings, span_annotations, document
+            token_embeddings, span_annotations, document, pooling=pooling
         )
-
-        logger.info(f"Processed document into {len(chunks)} chunks using Late Chunking")
+        logger.info(
+            f"Processed document into {len(chunks)} chunks using Late Chunking (pooling={pooling})"
+        )
         return chunks, chunk_embeddings
 
     def compare_with_traditional(

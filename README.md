@@ -259,54 +259,49 @@ uv run docling-japanese-books evaluate --output detailed_results.json --verbose
 
 ### Advanced Model Comparison: Snowflake Arctic Embed
 
-We've evaluated the highly-praised **Snowflake Arctic Embed L v2.0** model ([`Snowflake/snowflake-arctic-embed-l-v2.0`](https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0)) against our current BGE-M3 implementation:
+We've evaluated the highly-praised **Snowflake Arctic Embed L v2.0** model ([`Snowflake/snowflake-arctic-embed-l-v2.0`](https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0)) against our current BGE-M3 implementation and other leading models:
 
 ```bash
-# Run comprehensive 3-model comparison
+# Run comprehensive 4-model comparison
 uv run python scripts/evaluate_snowflake_arctic.py
 ```
 
-**Comprehensive Comparison Results (Real Japanese Documents):**
+**Comprehensive Comparison Results (Real Japanese Documents, October 2025):**
 
-The evaluation uses actual Japanese martial arts documents from `test_docs/`:
+| Model                         | Mean Score | Std Dev | Improvement over Traditional |
+| ----------------------------- | ---------- | ------- | ---------------------------- |
+| Traditional (MiniLM-L6-v2)    | 0.197      | 0.033   | baseline                     |
+| BGE-M3 (Late Chunking)        | 0.417      | 0.026   | +116.0% ± 30.1%              |
+| Snowflake Arctic Embed L v2.0 | 0.174      | 0.025   | -10.3% ± 14.9%               |
+| Jina Embeddings v4            | 0.579      | 0.020   | +201.4% ± 48.7%              |
 
-- 薙刀体操法\_860420_0001.pdf (Naginata exercise methods)
-- 広島県武術家伝\_1939799_0001.pdf (Hiroshima martial arts biography)
-- toyoma-okugi1956.pdf (Toyama secret techniques, 1956)
-- 集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究\_3143445_0001.pdf (Community research)
-
-```
-📊 JAPANESE-SPECIFIC QUERY PERFORMANCE:
-Traditional (all-MiniLM-L6-v2): 0.227 ± 0.130
-BGE-M3 (Late Chunking):        0.343 ± 0.026
-Snowflake Arctic Embed L v2.0: 0.144 ± 0.027
-Jina Embeddings v4:            0.572 ± 0.031
-
-📈 IMPROVEMENT OVER TRADITIONAL:
-BGE-M3 improvement:      98.9% ± 91.9%
-Snowflake improvement:   -22.8% ± 23.9%
-Jina v4 improvement:     225.0% ± 136.7%
-
-🏆 MODEL WINS (best performance per document):
-Jina Embeddings v4: 4/4 documents (100.0%)
-
-🚀 BEST INDIVIDUAL PERFORMANCES:
-BGE-M3 best:      集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究_3143445_0001 (+223.2%)
-Snowflake best:   集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究_3143445_0001 (-2.0%)
-Jina v4 best:     集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究_3143445_0001 (+396.5%)
-```
+| Document                                                                             | Traditional | BGE-M3 (Late Chunking) | Snowflake Arctic | Winner             |
+| ------------------------------------------------------------------------------------ | ----------- | ---------------------- | ---------------- | ------------------ |
+| toyoma-okugi1956                                                                     | 0.214       | 0.405 (+89.5%)         | 0.191 (-10.6%)   | Jina Embeddings v4 |
+| 広島県武術家伝\_1939799_0001                                                         | 0.151       | 0.381 (+151.5%)        | 0.139 (-8.4%)    | Jina Embeddings v4 |
+| 薙刀体操法\_860420_0001                                                              | 0.239       | 0.437 (+82.9%)         | 0.162 (-32.0%)   | Jina Embeddings v4 |
+| 集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究\_3143445_0001 | 0.186       | 0.446 (+140.1%)        | 0.204 (+9.9%)    | Jina Embeddings v4 |
 
 **Key Findings:**
 
 - ✅ **Jina Embeddings v4** dominates with 100% wins on real Japanese documents
-- 🎯 **Exceptional performance** on technical research content (+396.5% best improvement)
-- 📚 **BGE-M3 + Late Chunking** shows strong improvement (+98.9% average) and excellent context preservation
-- 📉 **Snowflake Arctic** underperforms traditional models (-22.8% average) on Japanese content
-- 🌐 **Quantization advantage**: Jina v4's quantization-aware training shows clear benefits (+225.0% average)
+- 🎯 **Exceptional performance** on technical and historical content (+265.4% best improvement)
+- 📚 **BGE-M3 + Late Chunking** shows strong improvement (+116.0% average) and excellent context preservation
+- 📉 **Snowflake Arctic** underperforms traditional models (-10.3% average) on Japanese content
+- 🌐 **Quantization advantage**: Jina v4's quantization-aware training shows clear benefits (+201.4% average)
 - 💡 **Task-specific encoding**: Jina v4's retrieval task specification crucial for Japanese texts
 - 📜 **Dynamic evaluation**: New documents added to `test_docs/` are automatically included
 
-**Recommendation**: Upgrade to **Jina Embeddings v4** for Japanese document processing workflows, with **BGE-M3 + Late Chunking** as strong alternative.
+**Recommendation:**
+
+- Upgrade to **Jina Embeddings v4** for Japanese document processing workflows
+- Use **BGE-M3 + Late Chunking** as a strong alternative for context preservation
+
+**Next Steps:**
+
+- Implement Jina Embeddings v4 as the primary embedding model
+- Leverage quantization-aware training for Japanese text
+- Test on larger document collections to validate performance
 
 ## Configuration
 

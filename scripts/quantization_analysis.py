@@ -3,25 +3,26 @@
 Vector Quantization Storage Analysis
 
 This script analyzes different quantization methods for vector embeddings
-and calculates their storage impact on a collection of Japanese books.
+and calculates their storage impact on a real collection of Japanese books (PDFs).
 
-Supports analysis of:
-- Full precision (float32) - Default
-- Half precision (float16)
-- 8-bit integer quantization (int8)
-- 4-bit integer quantization (int4)
-- Binary quantization (1-bit)
-- Product Quantization (PQ)
-- Scalar Quantization (SQ)
+Key features:
+- Uses Docling pipeline to extract text and statistics from all PDFs in test_docs
+- Calculates number of books, average pages per book, average characters per page, and chunk statistics from real data
+- Runs quantization analysis for multiple methods (float32, float16, int8, int4, binary, PQ, SQ)
+- Outputs storage estimates and recommendations based on actual document content
 
-Based on BGE-M3 embeddings (1024 dimensions) for Japanese document processing.
+Embeddings are based on BGE-M3 (1024 dimensions) for Japanese document processing.
 """
 
 import json
+
 from dataclasses import dataclass, field
 from pathlib import Path
-
 import numpy as np
+import sys
+sys.path.append(str(Path(__file__).parent.parent / "src"))
+from docling_japanese_books.processor import DocumentProcessor
+from docling_japanese_books.late_chunking import LateChunkingProcessor
 
 
 @dataclass
@@ -40,14 +41,18 @@ class QuantizationMethod:
 
 @dataclass
 class BookCollection:
-    """Configuration for the book collection to analyze."""
+    """
+    Configuration for the book collection to analyze.
+    All values are derived from real PDF statistics using Docling.
+    """
 
-    num_books: int = 100
-    pages_per_book: int = 80
-    chars_per_page: int = 400  # Average for Japanese mixed content
-    chunk_size: int = 400  # Characters per chunk
-    overlap_ratio: float = 0.1  # 10% overlap between chunks
-    embedding_dimensions: int = 1024  # BGE-M3 dimensions
+    def __init__(self, num_books, pages_per_book, chars_per_page, chunk_size, overlap_ratio, embedding_dimensions):
+        self.num_books = num_books
+        self.pages_per_book = pages_per_book
+        self.chars_per_page = chars_per_page
+        self.chunk_size = chunk_size
+        self.overlap_ratio = overlap_ratio
+        self.embedding_dimensions = embedding_dimensions
 
 
 @dataclass
@@ -398,20 +403,84 @@ class QuantizationAnalyzer:
             json.dump(json_results, f, indent=2, ensure_ascii=False)
 
 
-def main():
-    """Run quantization analysis for Japanese book collection."""
 
-    # Configure collection (100 books, 80 pages each)
+def extract_pdf_stats(pdf_dir: Path):
+    """
+    Extract statistics from all PDF files in the given directory using Docling.
+    Returns number of books, average pages per book, average characters per page, chunk size, and embedding dimensions.
+    Chunk count is calculated using LateChunkingProcessor for each document.
+    """
+    processor = DocumentProcessor()
+    late_chunker = LateChunkingProcessor()
+    pdf_files = list(pdf_dir.glob("*.pdf"))
+    num_books = len(pdf_files)
+    total_pages = 0
+    total_chars = 0
+    total_chunks = 0
+    chunk_size = 400  # Default, will be updated if needed
+    embedding_dimensions = 1024  # BGE-M3 default
+    overlap_ratio = 0.1
+    pages_per_book_list = []
+    chars_per_page_list = []
+    chunks_per_book_list = []
+
+    for pdf_file in pdf_files:
+        # Use Docling to extract text from PDF
+        try:
+            conv_results = processor.converter.convert_all([pdf_file], raises_on_error=False)
+            if not conv_results or not hasattr(conv_results[0], "document"):
+                continue
+            doc = conv_results[0].document
+            pages = getattr(doc, "num_pages", 1)
+            text = doc.export_to_markdown() if hasattr(doc, "export_to_markdown") else str(doc)
+            chars = len(text)
+            pages_per_book_list.append(pages)
+            chars_per_page_list.append(chars / pages if pages else 0)
+            total_pages += pages
+            total_chars += chars
+            # Use late chunking to get chunk count
+            chunks, _ = late_chunker.simple_sentence_chunker(text, max_chunk_length=chunk_size)
+            chunks_per_book_list.append(len(chunks))
+            total_chunks += len(chunks)
+        except Exception as e:
+            print(f"Error processing {pdf_file}: {e}")
+            continue
+
+    avg_pages_per_book = int(np.round(np.mean(pages_per_book_list))) if pages_per_book_list else 1
+    avg_chars_per_page = int(np.round(np.mean(chars_per_page_list))) if chars_per_page_list else 1
+    avg_chunks_per_book = int(np.round(np.mean(chunks_per_book_list))) if chunks_per_book_list else 1
+
+    return {
+        "num_books": num_books,
+        "pages_per_book": avg_pages_per_book,
+        "chars_per_page": avg_chars_per_page,
+        "chunk_size": chunk_size,
+        "overlap_ratio": overlap_ratio,
+        "embedding_dimensions": embedding_dimensions,
+        "total_chunks": total_chunks,
+        "avg_chunks_per_book": avg_chunks_per_book,
+    }
+
+
+def main():
+    """
+    Main entry point for quantization analysis.
+    - Extracts real statistics from all PDFs in test_docs using Docling
+    - Initializes BookCollection with extracted values
+    - Runs quantization analysis for all methods
+    - Outputs markdown and JSON reports with storage estimates and recommendations
+    """
+    pdf_dir = Path("test_docs")
+    stats = extract_pdf_stats(pdf_dir)
     collection = BookCollection(
-        num_books=100,
-        pages_per_book=80,
-        chars_per_page=400,  # Mixed Japanese content average
-        chunk_size=400,
-        overlap_ratio=0.1,
-        embedding_dimensions=1024,  # BGE-M3
+        num_books=stats["num_books"],
+        pages_per_book=stats["pages_per_book"],
+        chars_per_page=stats["chars_per_page"],
+        chunk_size=stats["chunk_size"],
+        overlap_ratio=stats["overlap_ratio"],
+        embedding_dimensions=stats["embedding_dimensions"],
     )
 
-    # Run analysis
     analyzer = QuantizationAnalyzer(collection)
     results = analyzer.analyze_all_methods()
 

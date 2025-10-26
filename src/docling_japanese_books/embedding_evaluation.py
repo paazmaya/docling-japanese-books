@@ -796,6 +796,125 @@ def main():
 
     return results
 
+    def _evaluate_jina_v4_late_chunking_approach(
+        self, document: str, max_chunk_length: int = 500
+    ) -> dict:
+        """Evaluate Jina v4 with late chunking."""
+        import torch
+
+        start_time = time.time()
+        chunks, span_annotations = self.late_chunking.simple_sentence_chunker(
+            document, max_chunk_length
+        )
+
+        # Generate token embeddings for the full document using Jina v4
+        tokenizer = (
+            self.jina_v4_model.tokenizer
+            if hasattr(self.jina_v4_model, "tokenizer")
+            else None
+        )
+        model = (
+            self.jina_v4_model._first_module().auto_model
+            if hasattr(self.jina_v4_model, "_first_module")
+            else None
+        )
+        if tokenizer is None or model is None:
+            # Fallback: use sentence-level embeddings for each chunk
+            embeddings = [
+                self.jina_v4_model.encode(chunk, task=JINA_TASK_RETRIEVAL)
+                for chunk in chunks
+            ]
+        else:
+            tokenized_document = tokenizer(
+                document,
+                return_tensors="pt",
+                max_length=8192,
+                truncation=True,
+                padding=True,
+            )
+            with torch.no_grad():
+                output = model(**tokenized_document)
+                token_embeddings = output.last_hidden_state
+            seq_len = token_embeddings.shape[1]
+            doc_length = len(document)
+            pooled_embeddings = []
+            for char_start, char_end in span_annotations:
+                token_start = int((char_start / doc_length) * seq_len)
+                token_end = int((char_end / doc_length) * seq_len)
+                token_start = max(0, token_start)
+                token_end = min(seq_len, max(token_start + 1, token_end))
+                if token_end > token_start:
+                    chunk_embedding = token_embeddings[0, token_start:token_end].mean(
+                        dim=0
+                    )
+                    pooled_embeddings.append(chunk_embedding.detach().cpu().numpy())
+            embeddings = pooled_embeddings
+        processing_time = time.time() - start_time
+        return {
+            "chunks": chunks,
+            "embeddings": embeddings,
+            "processing_time": processing_time,
+        }
+
+    def _evaluate_snowflake_arctic_late_chunking_approach(
+        self, document: str, max_chunk_length: int = 500
+    ) -> dict:
+        """Evaluate Snowflake Arctic with late chunking."""
+        import torch
+
+        start_time = time.time()
+        # Use the same chunking as LateChunkingProcessor
+        chunks, span_annotations = self.late_chunking.simple_sentence_chunker(
+            document, max_chunk_length
+        )
+
+        # Generate token embeddings for the full document using Snowflake Arctic
+        # Use transformers for token-level embeddings
+        tokenizer = (
+            self.snowflake_arctic_model.tokenizer
+            if hasattr(self.snowflake_arctic_model, "tokenizer")
+            else None
+        )
+        model = (
+            self.snowflake_arctic_model._first_module().auto_model
+            if hasattr(self.snowflake_arctic_model, "_first_module")
+            else None
+        )
+        if tokenizer is None or model is None:
+            # Fallback: use sentence-level embeddings for each chunk
+            embeddings = [self.snowflake_arctic_model.encode(chunk) for chunk in chunks]
+        else:
+            tokenized_document = tokenizer(
+                document,
+                return_tensors="pt",
+                max_length=8192,
+                truncation=True,
+                padding=True,
+            )
+            with torch.no_grad():
+                output = model(**tokenized_document)
+                token_embeddings = output.last_hidden_state
+            seq_len = token_embeddings.shape[1]
+            doc_length = len(document)
+            pooled_embeddings = []
+            for char_start, char_end in span_annotations:
+                token_start = int((char_start / doc_length) * seq_len)
+                token_end = int((char_end / doc_length) * seq_len)
+                token_start = max(0, token_start)
+                token_end = min(seq_len, max(token_start + 1, token_end))
+                if token_end > token_start:
+                    chunk_embedding = token_embeddings[0, token_start:token_end].mean(
+                        dim=0
+                    )
+                    pooled_embeddings.append(chunk_embedding.detach().cpu().numpy())
+            embeddings = pooled_embeddings
+        processing_time = time.time() - start_time
+        return {
+            "chunks": chunks,
+            "embeddings": embeddings,
+            "processing_time": processing_time,
+        }
+
 
 if __name__ == "__main__":
     main()
