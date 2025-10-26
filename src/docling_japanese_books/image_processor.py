@@ -200,8 +200,8 @@ class ImageProcessor:
 
         references = []
         for img in images:
-            # Create markdown-style image reference - fix f-string nesting
-            caption = img.get("caption", f"Image {img['image_index']}")
+            # Create markdown-style image reference
+            caption = img.get("caption") or f"Image {img['image_index']}"
             ref = f"![{caption}]({img['relative_path']})"
 
             # Add annotations as comments

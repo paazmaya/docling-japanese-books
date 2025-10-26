@@ -2,9 +2,9 @@
 
 [![Python CI](https://github.com/paazmaya/docling-japanese-books/actions/workflows/ci.yml/badge.svg)](https://github.com/paazmaya/docling-japanese-books/actions/workflows/ci.yml)
 
-A streamlined document processing tool that uses Docling to extract, process, and store Japanese books and documents for LLM training workflows. Built with hardcoded configurations for simplicity and consistency.
+A streamlined document processing tool that uses [Docling](https://github.com/docling-project/docling) to extract, process, and store Japanese books and documents for LLM training workflows.
 
-See the amount of emojis used in this documentation? Sure, this has initially been vibe-coded during an evening...
+**See the amount of emojis used in this documentation? Sure, this has initially been vibe-coded during an evening...**
 
 ![Duckling in hakama reading a Japanese book](./logo.png)
 
@@ -100,13 +100,17 @@ flowchart TD
 - [uv](https://github.com/astral-sh/uv) for dependency management
 - Internet connection (for model downloads)
 - ~7GB free disk space (for models)
-
-**Windows installation proved to be tricky**
-
-- `vcpkg install leptonica`, https://github.com/DanBloomberg/leptonica
-- `winget install tesseract-ocr.tesseract`, https://github.com/tesseract-ocr/tesseract
+- Docker
 
 ### Setup
+
+https://milvus.io/docs/install_standalone-docker-compose-gpu.md
+
+http://localhost:9091/webui/
+
+```sh
+docker compose up -d
+```
 
 #### Option 1: Development Installation (Recommended)
 

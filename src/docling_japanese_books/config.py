@@ -70,8 +70,8 @@ class DatabaseConfig(BaseModel):
 
     database_type: str = Field(default="milvus", description="Vector database type")
     milvus_uri: str = Field(
-        default=".database/docling_documents.db",
-        description="Local Milvus Lite database path",
+        default="http://localhost:19530",
+        description="Milvus Docker host URI (default port)",
     )
     zilliz_cloud_uri: str = Field(
         default_factory=lambda: os.getenv("ZILLIZ_CLOUD_URI", ""),
@@ -86,8 +86,8 @@ class DatabaseConfig(BaseModel):
         description="Zilliz Cloud cluster identifier",
     )
     deployment_mode: str = Field(
-        default_factory=lambda: os.getenv("MILVUS_DEPLOYMENT_MODE", "local"),
-        description="Database deployment mode: 'local' or 'cloud'",
+        default_factory=lambda: os.getenv("MILVUS_DEPLOYMENT_MODE", "docker"),
+        description="Database deployment mode: 'local', 'docker', or 'cloud'",
     )
     collection_name: str = Field(
         default="docling_japanese_books", description="Vector database collection name"

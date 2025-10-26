@@ -6,12 +6,14 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import (
+    EasyOcrOptions,
     PdfPipelineOptions,
 )
 from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling_core.transforms.chunker import HierarchicalChunker
+from docling_core.transforms.chunker.hierarchical_chunker import HierarchicalChunker
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -102,10 +104,16 @@ class DocumentProcessor:
     def _setup_docling(self) -> None:
         """Configure Docling converter with vision model support for Japanese documents."""
         pipeline_options = PdfPipelineOptions(
+            accelerator_options=AcceleratorOptions(device=AcceleratorDevice.CUDA),
             artifacts_path=self.config.docling.artifacts_path,
             do_ocr=self.config.docling.enable_ocr,
             do_table_structure=self.config.docling.do_table_structure,
             generate_page_images=self.config.docling.generate_page_images,
+            ocr_options=EasyOcrOptions(
+                use_gpu=True,
+                download_enabled=True,
+                model_storage_directory=".models/EasyOCR",
+            ),
         )
 
         if self.config.docling.do_table_structure:

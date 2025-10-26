@@ -149,30 +149,26 @@ class LateChunkingProcessor:
         """
         self.load_model()
 
+        if self.model is None:
+            raise RuntimeError("Embedding model is not loaded.")
+
         if self._use_flag_model:
-            # BGE-M3 has built-in tokenization
-            # For late chunking, we need to access token-level embeddings
-            # This is a simplified approach - for production, you'd want
-            # to access the model's internal representations
+            if not hasattr(self.model, "encode"):
+                raise RuntimeError("FlagEmbedding model does not have 'encode' method.")
             logger.warning("BGE-M3 FlagModel doesn't expose token embeddings directly")
             logger.info("Falling back to sentence-level embeddings")
-
-            # Get dense embedding (this is sentence-level, not token-level)
             embedding = self.model.encode(
                 [document],
                 batch_size=1,
-                max_length=8192,  # BGE-M3 supports 8K context
+                max_length=8192,
                 return_dense=True,
                 return_sparse=False,
                 return_colbert_vecs=False,
             )["dense_vecs"]
-
-            # Reshape to match expected format [batch, seq_len, hidden_size]
-            # Note: This is a fallback - true late chunking requires token embeddings
             return torch.tensor(embedding, device=self.device).unsqueeze(1)
-
         else:
-            # Use transformers model for true token-level embeddings
+            if self.tokenizer is None:
+                raise RuntimeError("Tokenizer is not loaded.")
             tokenized_document = self.tokenizer(
                 document,
                 return_tensors="pt",
@@ -184,19 +180,36 @@ class LateChunkingProcessor:
             outputs = []
             tokens = tokenized_document["input_ids"][0]
 
-            # Process in batches to handle long documents
             for i in range(0, len(tokens), batch_size):
                 start = i
                 end = min(i + batch_size, len(tokens))
-
                 batch_inputs = {
                     k: v[:, start:end] for k, v in tokenized_document.items()
                 }
-
                 with torch.no_grad():
-                    model_output = self.model(**batch_inputs)
-                    outputs.append(model_output.last_hidden_state)
-
+                    # HuggingFace transformer backend
+                    if callable(self.model):
+                        model_output = self.model(**batch_inputs)
+                        outputs.append(model_output.last_hidden_state)
+                    # FlagEmbedding/M3Embedder backend
+                    elif hasattr(self.model, "encode"):
+                        # Use encode for each chunk, but this is not true token-level
+                        chunk_text = document[start:end]
+                        embedding = self.model.encode(
+                            [chunk_text],
+                            batch_size=1,
+                            max_length=8192,
+                            return_dense=True,
+                            return_sparse=False,
+                            return_colbert_vecs=False,
+                        )["dense_vecs"]
+                        outputs.append(
+                            torch.tensor(embedding, device=self.device).unsqueeze(1)
+                        )
+                    else:
+                        raise RuntimeError(
+                            "Model backend not supported for token embeddings."
+                        )
             return torch.cat(outputs, dim=1)
 
     def late_chunking(
@@ -219,10 +232,13 @@ class LateChunkingProcessor:
             List of chunk embeddings as numpy arrays
         """
         if self._use_flag_model:
+            if self.model is None or not hasattr(self.model, "encode"):
+                raise RuntimeError(
+                    "FlagEmbedding model is not loaded or missing 'encode'."
+                )
             logger.warning(
                 "Late chunking with BGE-M3 FlagModel uses sentence-level fallback"
             )
-            # Return sentence-level embeddings for each chunk
             embeddings = token_embeddings.cpu().numpy()
             return [embeddings[0, 0] for _ in span_annotations]
 
@@ -289,15 +305,14 @@ class LateChunkingProcessor:
             Tuple of (late_chunking_embeddings, traditional_embeddings)
         """
         self.load_model()
-
+        if self.model is None:
+            raise RuntimeError("Embedding model is not loaded.")
         # Late chunking embeddings
         _, late_embeddings = self.process_document(document)
-
-        # Traditional embeddings (embed each chunk separately)
         traditional_embeddings = []
-
         if self._use_flag_model:
-            # Use BGE-M3 for individual chunks
+            if not hasattr(self.model, "encode"):
+                raise RuntimeError("FlagEmbedding model does not have 'encode' method.")
             chunk_embeds = self.model.encode(
                 chunks,
                 batch_size=8,
@@ -308,20 +323,35 @@ class LateChunkingProcessor:
             )["dense_vecs"]
             traditional_embeddings = list(chunk_embeds)
         else:
-            # Use transformers model for individual chunks
+            if self.tokenizer is None:
+                raise RuntimeError("Tokenizer is not loaded.")
             for chunk in chunks:
-                inputs = self.tokenizer(
-                    chunk,
-                    return_tensors="pt",
-                    max_length=512,
-                    truncation=True,
-                    padding=True,
-                ).to(self.device)
-
-                with torch.no_grad():
-                    output = self.model(**inputs)
-                    # Mean pooling
-                    embedding = output.last_hidden_state.mean(dim=1)
-                    traditional_embeddings.append(embedding.cpu().numpy()[0])
-
+                # HuggingFace transformer backend
+                if callable(self.model):
+                    inputs = self.tokenizer(
+                        chunk,
+                        return_tensors="pt",
+                        max_length=512,
+                        truncation=True,
+                        padding=True,
+                    ).to(self.device)
+                    with torch.no_grad():
+                        output = self.model(**inputs)
+                        embedding = output.last_hidden_state.mean(dim=1)
+                        traditional_embeddings.append(embedding.cpu().numpy()[0])
+                # FlagEmbedding/M3Embedder backend
+                elif hasattr(self.model, "encode"):
+                    embedding = self.model.encode(
+                        [chunk],
+                        batch_size=1,
+                        max_length=512,
+                        return_dense=True,
+                        return_sparse=False,
+                        return_colbert_vecs=False,
+                    )["dense_vecs"][0]
+                    traditional_embeddings.append(embedding)
+                else:
+                    raise RuntimeError(
+                        "Model backend not supported for chunk embeddings."
+                    )
         return late_embeddings, traditional_embeddings

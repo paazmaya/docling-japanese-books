@@ -90,6 +90,8 @@ scratch/
 
 # Local database
 .database/
+.minio/
+.etcd/
 
 # Data files (often large)
 *.docx

@@ -1,4 +1,8 @@
-"""Vector database operations using Milvus."""
+"""
+Vector database operations using Milvus.
+
+Milvus Lite docs: https://milvus.io/docs/milvus_lite.md
+"""
 
 import logging
 from pathlib import Path
@@ -45,7 +49,7 @@ class MilvusVectorDB:
             raise
 
     def _setup_milvus_client(self) -> None:
-        """Connect to Milvus Lite (local) or Zilliz Cloud based on configuration."""
+        """Connect to Milvus (Lite, Docker, or Zilliz Cloud) based on configuration."""
         deployment_mode = self.config.database.deployment_mode
 
         if deployment_mode == "local":
@@ -54,6 +58,11 @@ class MilvusVectorDB:
             self.logger.info(
                 f"Using local Milvus Lite at: {self.config.database.milvus_uri}"
             )
+        elif deployment_mode == "docker":
+            self.logger.info(
+                f"Connecting to Milvus Docker at: {self.config.database.milvus_uri}"
+            )
+            # No special setup needed, just connect to the Docker host/port
         elif deployment_mode == "cloud":
             self.logger.info(
                 f"Connecting to Zilliz Cloud at: {self.config.database.zilliz_cloud_uri}"
@@ -67,13 +76,14 @@ class MilvusVectorDB:
 
         try:
             connection_params = self.config.database.get_connection_params()
-
             self.logger.info(f"Connecting to Milvus ({deployment_mode} mode)...")
             self.client = MilvusClient(**connection_params)
             self._ensure_collection()
 
             if deployment_mode == "cloud":
                 self.logger.info("Connected to Zilliz Cloud successfully")
+            elif deployment_mode == "docker":
+                self.logger.info("Connected to Milvus Docker successfully")
             else:
                 self.logger.info("Connected to local Milvus Lite successfully")
 
@@ -85,6 +95,8 @@ class MilvusVectorDB:
                 self.logger.error(
                     "Check your Zilliz Cloud URI and API key configuration"
                 )
+            elif deployment_mode == "docker":
+                self.logger.error("Check your Docker container and port mapping")
             raise
 
     def _ensure_collection(self) -> None:
@@ -324,6 +336,7 @@ class MilvusVectorDB:
         """Clean up Milvus client resources."""
         try:
             if hasattr(self, "client"):
+                self.client.close()
                 self.logger.debug("Milvus client closed")
         except Exception as e:
             self.logger.error(f"Error closing Milvus client: {e}")

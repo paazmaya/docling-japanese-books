@@ -15,14 +15,15 @@ Embeddings are based on BGE-M3 (1024 dimensions) for Japanese document processin
 """
 
 import json
-
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+
 import numpy as np
-import sys
+
 sys.path.append(str(Path(__file__).parent.parent / "src"))
-from docling_japanese_books.processor import DocumentProcessor
 from docling_japanese_books.late_chunking import LateChunkingProcessor
+from docling_japanese_books.processor import DocumentProcessor
 
 
 @dataclass
@@ -46,7 +47,15 @@ class BookCollection:
     All values are derived from real PDF statistics using Docling.
     """
 
-    def __init__(self, num_books, pages_per_book, chars_per_page, chunk_size, overlap_ratio, embedding_dimensions):
+    def __init__(
+        self,
+        num_books,
+        pages_per_book,
+        chars_per_page,
+        chunk_size,
+        overlap_ratio,
+        embedding_dimensions,
+    ):
         self.num_books = num_books
         self.pages_per_book = pages_per_book
         self.chars_per_page = chars_per_page
@@ -403,7 +412,6 @@ class QuantizationAnalyzer:
             json.dump(json_results, f, indent=2, ensure_ascii=False)
 
 
-
 def extract_pdf_stats(pdf_dir: Path):
     """
     Extract statistics from all PDF files in the given directory using Docling.
@@ -427,28 +435,42 @@ def extract_pdf_stats(pdf_dir: Path):
     for pdf_file in pdf_files:
         # Use Docling to extract text from PDF
         try:
-            conv_results = processor.converter.convert_all([pdf_file], raises_on_error=False)
+            conv_results = list(
+                processor.converter.convert_all([pdf_file], raises_on_error=False)
+            )
             if not conv_results or not hasattr(conv_results[0], "document"):
                 continue
             doc = conv_results[0].document
             pages = getattr(doc, "num_pages", 1)
-            text = doc.export_to_markdown() if hasattr(doc, "export_to_markdown") else str(doc)
+            text = (
+                doc.export_to_markdown()
+                if hasattr(doc, "export_to_markdown")
+                else str(doc)
+            )
             chars = len(text)
             pages_per_book_list.append(pages)
             chars_per_page_list.append(chars / pages if pages else 0)
             total_pages += pages
             total_chars += chars
             # Use late chunking to get chunk count
-            chunks, _ = late_chunker.simple_sentence_chunker(text, max_chunk_length=chunk_size)
+            chunks, _ = late_chunker.simple_sentence_chunker(
+                text, max_chunk_length=chunk_size
+            )
             chunks_per_book_list.append(len(chunks))
             total_chunks += len(chunks)
         except Exception as e:
             print(f"Error processing {pdf_file}: {e}")
             continue
 
-    avg_pages_per_book = int(np.round(np.mean(pages_per_book_list))) if pages_per_book_list else 1
-    avg_chars_per_page = int(np.round(np.mean(chars_per_page_list))) if chars_per_page_list else 1
-    avg_chunks_per_book = int(np.round(np.mean(chunks_per_book_list))) if chunks_per_book_list else 1
+    avg_pages_per_book = (
+        int(np.round(np.mean(pages_per_book_list))) if pages_per_book_list else 1
+    )
+    avg_chars_per_page = (
+        int(np.round(np.mean(chars_per_page_list))) if chars_per_page_list else 1
+    )
+    avg_chunks_per_book = (
+        int(np.round(np.mean(chunks_per_book_list))) if chunks_per_book_list else 1
+    )
 
     return {
         "num_books": num_books,
