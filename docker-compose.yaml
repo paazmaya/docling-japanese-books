@@ -9,9 +9,13 @@ services:
     container_name: milvus-etcd
     image: quay.io/coreos/etcd:v3.5.18
     environment:
+      # Automatically compact etcd history based on revision count
       - ETCD_AUTO_COMPACTION_MODE=revision
+      # Keep last 1000 revisions to prevent unlimited storage growth
       - ETCD_AUTO_COMPACTION_RETENTION=1000
+      # Set etcd database size limit to 4GB for large vector collections
       - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      # Trigger snapshot creation every 50K operations for durability
       - ETCD_SNAPSHOT_COUNT=50000
     volumes:
       - .etcd:/etcd
@@ -26,6 +30,7 @@ services:
     container_name: milvus-minio
     image: minio/minio:RELEASE.2024-12-18T13-15-44Z
     environment:
+      # Default MinIO credentials for object storage (change in production)
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
     ports:
@@ -48,13 +53,21 @@ services:
     security_opt:
     - seccomp:unconfined
     environment:
+      # Connection endpoints for etcd metadata store
       ETCD_ENDPOINTS: etcd:2379
+      # MinIO object storage address for vector data and logs
       MINIO_ADDRESS: minio:9000
+      # Message queue type for internal communication
       MQ_TYPE: woodpecker
+      # Timezone for logging and timestamps
       TZ: Europe/Helsinki
+      # Log verbosity level (debug, info, warn, error)
       MILVUS_LOG_LEVEL: info
+      # Enable GPU acceleration for vector operations
       MILVUS_GPU_ENABLED: true
+      # GPU resource configuration (default uses all available)
       MILVUS_GPU_RESOURCE: default
+      # Specific GPU device IDs to use (0 = first GPU)
       MILVUS_GPU_DEVICE_IDS: 0
     restart: unless-stopped
     ports:

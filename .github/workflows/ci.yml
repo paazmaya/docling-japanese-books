@@ -5,7 +5,7 @@ on:
   pull_request:
 
 env:
-  PYTHON_VERSION: "3.11"
+  PYTHON_VERSION: "3.10"
 
 jobs:
   lint-and-basic-tests:
@@ -34,7 +34,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          uv run python -m pytest tests/ -v --cov=src/docling_japanese_books --cov-report=xml --cov-report=html
+          uv run python -m pytest tests/ -v --cov=src/docling_japanese_books --cov-report=xml
 
       - name: Test CLI help commands
         run: |

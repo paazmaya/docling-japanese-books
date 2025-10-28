@@ -320,15 +320,16 @@ class ImageProcessor:
                     analysis["writing_system_detected"].append(indicator)
 
     def _check_layout_orientation(self, text: str, analysis: dict[str, any]) -> None:
-        """Check text for layout orientation indicators."""
-        if any(term in text for term in ["vertical", "縦書き"]):
-            analysis["layout_orientation"] = "vertical"
-        elif any(term in text for term in ["horizontal", "横書き"]):
-            analysis["layout_orientation"] = "horizontal"
+        """Check text for layout and orientation indicators."""
+        layout_indicators = [
+            "vertical",
+            "horizontal",
+            "縦書き",
+            "横書き",
+            "right-to-left",
+        ]
+        if any(indicator in text.lower() for indicator in layout_indicators):
+            analysis["layout_cues"] = True
 
     def _check_cultural_elements(self, text: str, analysis: dict[str, any]) -> None:
-        """Check text for cultural element indicators."""
-        cultural_terms = ["traditional", "calligraphy", "scroll", "brush", "ink"]
-        for term in cultural_terms:
-            if term in text:
-                analysis["cultural_elements"].append(term)
+        """Check text for Japanese cultural elements and context."""

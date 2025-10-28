@@ -7,14 +7,14 @@ authors = [
 ]
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = ["docling", "document-processing", "llm", "training-data"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
+
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -39,7 +39,7 @@ dependencies = [
     "pathlib-mate>=1.0.0",
     "easyocr>=1.7.2",
     "rapidocr>=3.4.2",
-    "onnxruntime-gpu>=1.20.2",
+    "onnxruntime>=1.21.0",
 ]
 
 [project.optional-dependencies]

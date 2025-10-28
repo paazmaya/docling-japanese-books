@@ -10,64 +10,62 @@ A streamlined document processing tool that uses [Docling](https://github.com/do
 
 ## Overview
 
-This project provides a robust, opinionated pipeline for:
+This project provides a robust, opinionated pipeline for Japanese PDF document processing:
 
-- **Document Ingestion**: Batch processing of documents in various formats (PDF, DOCX, HTML, etc.)
-- **Content Extraction**: Using Docling's advanced document understanding capabilities with IBM Granite Vision 3.3 2B
+- **PDF Processing**: Batch processing of Japanese PDF documents with advanced understanding
+- **Content Extraction**: Using [Docling's document understanding capabilities with IBM Granite models](https://www.ibm.com/new/announcements/granite-docling-end-to-end-document-conversion)
 - **Image Processing**: Extract and annotate images with SHA-256 hashing for deduplication
-- **Vector Storage**: [Milvus](https://milvus.io/) Lite database with enhanced metadata including image references
-- **LLM Training Preparation**: Optimized chunking and serialization for training data
+- **Vector Storage**: [Milvus](https://milvus.io/) database with enhanced metadata
+- **LLM Training Preparation**: Optimized chunking and serialization for Japanese training data
 
 ## Key Features
 
-- 📄 **Multi-format Support**: PDF, DOCX, PPTX, HTML, Markdown, TXT, and images
-- 🔧 **Advanced Processing**: Table extraction, OCR, structure preservation
-- �️ **Vision Model Integration**: IBM Granite Vision 3.3 2B for image annotation with Japanese-optimized prompts
+- 📄 **PDF Processing**: Specialized handling of Japanese PDF documents
+- 🔧 **Advanced OCR**: Table extraction, structure preservation, Japanese text recognition
 - 🖼️ **Smart Image Handling**: SHA-256 based filenames for deduplication, separate storage with metadata
-- 🗂️ **Vector Database**: Milvus Lite with enhanced schema including image metadata
-- 🤖 **LLM Ready**: BGE-M3 embeddings with Late Chunking optimization for Japanese content
-- 🧪 **Embedding Evaluation**: Real-document testing with automatic PDF processing from `test_docs/` ([BGE-M3](https://huggingface.co/BAAI/bge-m3), [Snowflake Arctic](https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0), [Jina v4](https://huggingface.co/jinaai/jina-embeddings-v4), [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2))
-- ⚡ **Batch Processing**: Efficient processing with Rich progress tracking
+- 🗂️ **Vector Database**: [Milvus](https://milvus.io/) with enhanced schema including image metadata
+- 🤖 **LLM Ready**: Multiple embedding models ([Jina v4](https://jina.ai/embeddings/), [BGE-M3](https://huggingface.co/BAAI/bge-m3), [Snowflake Arctic](https://huggingface.co/Snowflake/snowflake-arctic-embed-l), [MiniLM](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)) with Late Chunking optimization
+- 🧪 **Embedding Evaluation**: Real-document testing with automatic PDF processing from `test_docs/`
+- ⚡ **Batch Processing**: Efficient processing with [Rich](https://rich.readthedocs.io/) progress tracking
 - 🎯 **Zero Configuration**: Hardcoded settings optimized for Japanese documents
 - 📊 **Rich CLI**: Beautiful progress bars and comprehensive commands
-- 🛠️ **Modern Tooling**: Built with uv, ruff, and complete type hints
+- 🛠️ **Modern Tooling**: Built with [uv](https://github.com/astral-sh/uv), [ruff](https://github.com/astral-sh/ruff), and complete type hints
 - 📦 **Local Model Management**: Download and cache models in project directory
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-  A[📁 Input Documents] --> B{Document Type}
-  B -->|PDF, DOCX, PPTX| C[🔧 Docling Processing]
-  B -->|HTML, MD, TXT| C
-  B -->|Images| C
+    A[📁 Japanese PDF Documents] --> B[🔧 Docling Processing]
 
-  C --> D[📝 Text Extraction]
-  C --> E[🖼️ Image Extraction]
-  C --> F[📊 Table Extraction]
+    B --> C[📝 Text Extraction]
+    B --> D[🖼️ Image Extraction]
+    B --> E[📊 Table Extraction]
 
-  D --> G[🧠 IBM Granite Vision 3.3B]
-  E --> H[🔐 SHA-256 Hashing]
-  F --> D
+    C --> F[📖 Japanese Text Analysis]
+    D --> G[🔐 SHA-256 Hashing]
+    E --> C
 
-  G --> I[📖 Japanese Text Analysis]
-  H --> J[🗂️ Deduplicated Storage]
+    F --> H[✂️ Late Chunking]
+    G --> I[💾 Image Repository]
 
-  I --> K[✂️ Hierarchical Chunking]
-  J --> L[💾 Image Repository]
+    H --> J{🧮 Embedding Models}
+    J --> J1[🔹 Jina v4]
+    J --> J2[🔸 BGE-M3]
+    J --> J3[🔸 Snowflake Arctic]
+    J --> J4[🔸 MiniLM-L6-v2]
+    I --> K[📋 Image Metadata]
 
-  K --> M{🧮 Embedding Model}
-  M --> M1[🔹 Jina v4]
-  M --> M2[🔸 BGE-M3]
-  M --> M3[🔸 Snowflake Arctic]
-  M --> M4[🔸 all-MiniLM-L6-v2]
-  L --> N[📋 Image Metadata]
+    J1 --> L[(🔍 Milvus Vector DB)]
+    J2 --> L
+    J3 --> L
+    J4 --> L
+    K --> L
 
-  M1 --> O{🗄️ Database Provider}
-  M2 --> O
-  M3 --> O
-  M4 --> O
-  N --> O
+    L --> M[� JSON Export]
+    L --> N[� Markdown Export]
+    L --> O[📦 JSONL Chunks]
+    L --> P[🔍 Vector Search]
 
   O --> O1[(🔍 Milvus Lite)]
   O --> O2[(☁️ Zilliz Cloud)]
@@ -104,9 +102,11 @@ flowchart TD
 
 ### Setup
 
-https://milvus.io/docs/install_standalone-docker-compose-gpu.md
+[Milvus Docker Installation Guide](https://milvus.io/docs/install_standalone-docker-compose-gpu.md)
 
-http://localhost:9091/webui/
+**⚠️ Note**: The local [Docker](https://www.docker.com/) setup downloads approximately **4GB of Docker images** ([Milvus](https://milvus.io/), [etcd](https://etcd.io/), [MinIO](https://min.io/)) on first run.
+
+[Milvus Web UI](http://localhost:9091/webui/)
 
 ```sh
 docker compose up -d
@@ -132,34 +132,16 @@ uv run docling-japanese-books download
 uv run docling-japanese-books process test_docs/
 ```
 
-#### Option 2: Package Installation (Future)
-
-Once published to PyPI, users will be able to install directly:
-
-```bash
-# Install from PyPI (when available)
-pip install docling-japanese-books
-
-# Or with uv
-uv add docling-japanese-books
-
-# Then use directly (no uv run needed)
-docling-japanese-books download
-docling-japanese-books process documents/
-docling-japanese-books search "query text"
-```
-
 ### Model Information
 
-**Tokenization**: Uses **IBM Granite Docling 258M** model ([`ibm-granite/granite-docling-258M`](https://huggingface.co/ibm-granite/granite-docling-258M)) for document-aware tokenization.
-
-**Vision Processing**: Uses **IBM Granite Vision 3.3 2B** model ([`ibm-granite/granite-vision-3.3-2b`](https://huggingface.co/ibm-granite/granite-vision-3.3-2b)) for image annotation with Japanese-optimized prompts.
-
-**Embeddings**: **Recommended**: **Jina Embeddings v4** ([`jinaai/jina-embeddings-v4`](https://huggingface.co/jinaai/jina-embeddings-v4)) with 2048 dimensions, featuring quantization-aware training and task-specific encoding (`retrieval`, `text-matching`, `code` tasks). Shows 225% average improvement over traditional models.
-
-**Alternative**: **BAAI/bge-m3** model ([`BAAI/bge-m3`](https://huggingface.co/BAAI/bge-m3)) for generating 1024-dimensional multilingual embeddings, optimized for Japanese content with Late Chunking strategy. Shows 98.9% improvement over traditional models.
-
-All models are downloaded to `.models/` directory in the project root for reuse.
+- **Document Processing**: [IBM Granite Docling 258M](https://huggingface.co/ibm-granite/granite-docling-258M) for PDF tokenization
+- **Embeddings**: Multiple models supported for comparison:
+  - **[Jina Embeddings v4](https://jina.ai/embeddings/)** (recommended for production)
+  - **[BGE-M3](https://huggingface.co/BAAI/bge-m3)** with Late Chunking (excellent alternative)
+  - **[Snowflake Arctic Embed L v2.0](https://huggingface.co/Snowflake/snowflake-arctic-embed-l)** (for comparison)
+  - **[all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)** (traditional baseline)
+- **Vision Processing**: [IBM Granite Vision 3.3 2B](https://huggingface.co/ibm-granite/granite-vision-3.3-2b) for image annotation
+- **Storage**: All models cached in `.models/` directory
 
 ### Database and Storage
 
@@ -178,56 +160,24 @@ Benefits of local storage:
 
 ### Command Overview
 
-The CLI is available as `docling-japanese-books` console script and provides three main commands:
-
-> **Note**: In development mode, use `uv run docling-japanese-books`. When installed as a package, you can use `docling-japanese-books` directly.
+The CLI provides these main commands (use `uv run` prefix in development):
 
 ```bash
 # Download all required models (run once)
-uv run docling-japanese-books download [--verbose] [--force]
+uv run docling-japanese-books download
 
-# Process documents with image extraction and vector storage
-uv run docling-japanese-books process DIRECTORY [--verbose] [--dry-run]
+# Process PDF documents
+uv run docling-japanese-books process test_docs/ [--dry-run] [--verbose]
 
 # Search the vector database
-uv run docling-japanese-books search "query text" [--limit 10] [--verbose]
+uv run docling-japanese-books search "martial arts" [--limit 5] [--verbose]
 
-# Evaluate embedding models for Japanese content
-uv run docling-japanese-books evaluate [--output results.json] [--documents docs.json] [--verbose]
+# Evaluate embedding models
+uv run docling-japanese-books evaluate
+uv run python scripts/evaluate_snowflake_arctic.py  # Compare all models
 
-# Compare all 4 embedding models (uses all PDFs in test_docs/)
-# Models: Traditional (all-MiniLM-L6-v2), BGE-M3, Snowflake Arctic Embed L v2.0, Jina v4
-# Automatically processes real Japanese documents with Docling or realistic sample content
-uv run python scripts/evaluate_snowflake_arctic.py
-
-# Configure database connection (local or cloud)
-uv run docling-japanese-books config-db [--mode local|cloud] [--test-connection] [--verbose]
-```
-
-### Processing Documents
-
-```bash
-# Process test documents (includes Japanese karate book PDF)
-uv run docling-japanese-books process test_docs/
-
-# Dry run to see what would be processed
-uv run docling-japanese-books process documents/ --dry-run
-
-# Process with verbose logging
-uv run docling-japanese-books process documents/ --verbose
-```
-
-### Searching Content
-
-```bash
-# Search for content
-uv run docling-japanese-books search "martial arts techniques"
-
-# Limit results
-uv run docling-japanese-books search "karate" --limit 3
-
-# Search with verbose output
-uv run docling-japanese-books search "Japanese text" --verbose
+# Configure database (local/cloud)
+uv run docling-japanese-books config-db [--mode local|cloud]
 ```
 
 ### Managing Models
@@ -245,13 +195,20 @@ uv run docling-japanese-books download --verbose
 
 ### Evaluating Embedding Performance
 
-The evaluation system compares embedding models using real Japanese documents from the `test_docs/` directory:
+The project includes comprehensive embedding model evaluation using real Japanese documents from `test_docs/`:
+
+**Available Models for Comparison:**
+
+- [Jina Embeddings v4](https://jina.ai/embeddings/) (2048 dimensions)
+- [BGE-M3](https://huggingface.co/BAAI/bge-m3) with Late Chunking (1024 dimensions)
+- [Snowflake Arctic Embed L v2.0](https://huggingface.co/Snowflake/snowflake-arctic-embed-l) (1024 dimensions)
+- [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) (384 dimensions, traditional baseline)
 
 ```bash
-# Run BGE-M3 vs traditional evaluation with real documents
+# Compare BGE-M3 vs traditional baseline
 uv run docling-japanese-books evaluate
 
-# Compare all 4 embedding models including Jina v4 (uses all PDFs in test_docs/)
+# Compare all 4 embedding models (comprehensive analysis)
 uv run python scripts/evaluate_snowflake_arctic.py
 
 # Use custom documents for evaluation
@@ -261,64 +218,39 @@ uv run docling-japanese-books evaluate --documents my_japanese_docs.json
 uv run docling-japanese-books evaluate --output detailed_results.json --verbose
 ```
 
-### Advanced Model Comparison: Snowflake Arctic Embed
+### Embedding Model Comparison
 
-We've evaluated the highly-praised **Snowflake Arctic Embed L v2.0** model ([`Snowflake/snowflake-arctic-embed-l-v2.0`](https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0)) against our current BGE-M3 implementation and other leading models:
+The project supports multiple embedding models for comprehensive evaluation. Tested on Japanese PDF documents from `test_docs/`:
 
-```bash
-# Run comprehensive 4-model comparison
-uv run python scripts/evaluate_snowflake_arctic.py
-```
+| Model                      | Performance | Best For                           |
+| -------------------------- | ----------- | ---------------------------------- |
+| **[Jina Embeddings v4](https://jina.ai/embeddings/)**     | +201%       | Production use, quantization-aware |
+| **[BGE-M3](https://huggingface.co/BAAI/bge-m3) (Late Chunking)** | +116%       | Context preservation, multilingual |
+| **[all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)**       | Baseline    | Traditional baseline comparison    |
+| **[Snowflake Arctic v2.0](https://huggingface.co/Snowflake/snowflake-arctic-embed-l)**  | -10%        | Comparison (underperforms on JP)   |
 
-**Comprehensive Comparison Results (Real Japanese Documents, October 2025):**
+**Available Evaluation Scripts:**
 
-| Model                         | Mean Score | Std Dev | Improvement over Traditional |
-| ----------------------------- | ---------- | ------- | ---------------------------- |
-| Traditional (MiniLM-L6-v2)    | 0.197      | 0.033   | baseline                     |
-| BGE-M3 (Late Chunking)        | 0.417      | 0.026   | +116.0% ± 30.1%              |
-| Snowflake Arctic Embed L v2.0 | 0.174      | 0.025   | -10.3% ± 14.9%               |
-| Jina Embeddings v4            | 0.579      | 0.020   | +201.4% ± 48.7%              |
+- `uv run docling-japanese-books evaluate` - BGE-M3 vs traditional comparison
+- `uv run python scripts/evaluate_snowflake_arctic.py` - Compare all 4 models
 
-| Document                                                                             | Traditional | BGE-M3 (Late Chunking) | Snowflake Arctic | Winner             |
-| ------------------------------------------------------------------------------------ | ----------- | ---------------------- | ---------------- | ------------------ |
-| toyoma-okugi1956                                                                     | 0.214       | 0.405 (+89.5%)         | 0.191 (-10.6%)   | Jina Embeddings v4 |
-| 広島県武術家伝\_1939799_0001                                                         | 0.151       | 0.381 (+151.5%)        | 0.139 (-8.4%)    | Jina Embeddings v4 |
-| 薙刀体操法\_860420_0001                                                              | 0.239       | 0.437 (+82.9%)         | 0.162 (-32.0%)   | Jina Embeddings v4 |
-| 集住と余暇より生まれるコミュニティ活動からみた生活空間計画に関する研究\_3143445_0001 | 0.186       | 0.446 (+140.1%)        | 0.204 (+9.9%)    | Jina Embeddings v4 |
+**Model Selection:**
 
-**Key Findings:**
-
-- ✅ **Jina Embeddings v4** dominates with 100% wins on real Japanese documents
-- 🎯 **Exceptional performance** on technical and historical content (+265.4% best improvement)
-- 📚 **BGE-M3 + Late Chunking** shows strong improvement (+116.0% average) and excellent context preservation
-- 📉 **Snowflake Arctic** underperforms traditional models (-10.3% average) on Japanese content
-- 🌐 **Quantization advantage**: Jina v4's quantization-aware training shows clear benefits (+201.4% average)
-- 💡 **Task-specific encoding**: Jina v4's retrieval task specification crucial for Japanese texts
-- 📜 **Dynamic evaluation**: New documents added to `test_docs/` are automatically included
-
-**Recommendation:**
-
-- Upgrade to **Jina Embeddings v4** for Japanese document processing workflows
-- Use **BGE-M3 + Late Chunking** as a strong alternative for context preservation
-
-**Next Steps:**
-
-- Implement Jina Embeddings v4 as the primary embedding model
-- Leverage quantization-aware training for Japanese text
-- Test on larger document collections to validate performance
+- **Production**: [Jina v4](https://jina.ai/embeddings/) for best Japanese performance
+- **Research**: [BGE-M3](https://huggingface.co/BAAI/bge-m3) for context preservation studies
+- **Benchmarking**: All models available for comprehensive comparison
 
 ## Configuration
 
 This tool uses hardcoded configurations optimized for Japanese document processing:
 
-### Document Processing (Docling)
+### PDF Processing (Docling)
 
-- **Supported formats**: PDF, DOCX, PPTX, HTML, Markdown, TXT, Images
+- **Supported format**: PDF documents (Japanese optimized)
 - **Max file size**: 100MB per document
 - **Max pages**: 1000 pages per document
-- **OCR**: Enabled by default (auto-detects best engine)
+- **OCR**: Enabled by default (auto-detects best engine for Japanese text)
 - **Table extraction**: Enabled with cell matching
-- **Vision models**: IBM Granite Vision 3.3 2B available (currently disabled due to path configuration issues)
 - **Image processing**: 2x scale, extract and annotate separately
 
 ### Vision Model Settings
@@ -334,8 +266,8 @@ This tool uses hardcoded configurations optimized for Japanese document processi
 
 ### Chunking & Tokenization
 
-- **Tokenizer**: `ibm-granite/granite-docling-258M` (document-aware)
-- **Embeddings**: `BAAI/bge-m3` (1024 dimensions, multilingual with Japanese support)
+- **Tokenizer**: [`ibm-granite/granite-docling-258M`](https://huggingface.co/ibm-granite/granite-docling-258M) (document-aware)
+- **Embeddings**: [`BAAI/bge-m3`](https://huggingface.co/BAAI/bge-m3) (1024 dimensions, multilingual with Japanese support)
 - **Strategy**: Late Chunking for improved context preservation
 - **Traditional Fallback**: Hierarchical chunking with image references
 - **Max tokens per chunk**: 512 (traditional) / 800 (Late Chunking)
@@ -349,7 +281,7 @@ Inspired by [Milvus research](https://milvus.io/blog/smarter-retrieval-for-rag-l
 
 1. **Embed First**: Process full document with global context
 2. **Chunk Later**: Extract contextualized chunk embeddings
-3. **Japanese Optimized**: BGE-M3 model with multilingual training
+3. **Japanese Optimized**: [BGE-M3](https://huggingface.co/BAAI/bge-m3) model with multilingual training
 
 **Performance Results** (tested on Japanese documents):
 
@@ -358,51 +290,16 @@ Inspired by [Milvus research](https://milvus.io/blog/smarter-retrieval-for-rag-l
 - 🧠 Context preservation: Maintains cross-sentence relationships
 - 🌐 Multilingual: Superior handling of Japanese grammar and cultural context
 
-### Vector Database (Milvus/Zilliz Cloud)
+### Vector Database
 
-- **Deployment Options**:
-  - 🏠 **Local**: Milvus Lite (`.database/docling_documents.db`)
-  - ☁️ **Cloud**: Zilliz Cloud (fully managed, scalable)
-- **Collection**: `docling_japanese_books`
-- **Embedding Dimension**: 1024 (BGE-M3 optimized)
-- **Similarity Metric**: Inner Product (cosine similarity)
-- **Enhanced Schema**: Includes image metadata fields
-  - `image_hashes`: SHA-256 hashes of images in chunk
-  - `has_images`: Boolean flag for quick filtering
-  - `chunk_metadata`: Enhanced with image references
-  - `chunking_method`: Tracks "traditional" vs "late_chunking"
-
-#### 🌐 **Cloud Database Support**
-
-Configure Zilliz Cloud for production-scale deployments:
-
-```bash
-# Set environment variables
-export MILVUS_DEPLOYMENT_MODE=cloud
-export ZILLIZ_CLOUD_URI=https://in03-<cluster-id>.serverless.gcp-us-west1.cloud.zilliz.com
-export ZILLIZ_API_KEY=your_api_key_here
-export ZILLIZ_CLUSTER_ID=your_cluster_id
-
-# Test cloud connection
-uv run docling-japanese-books config-db --test-connection
-
-# View configuration help
-uv run docling-japanese-books config-db --help
-```
-
-**Benefits of Zilliz Cloud:**
-
-- 🚀 **Auto-scaling**: Handles growing document collections
-- 🔒 **Enterprise Security**: Built-in authentication and encryption
-- 📊 **Monitoring**: Advanced analytics and performance insights
-- 🌍 **Global Access**: Multi-region deployment options
-- 💾 **Backup & Recovery**: Automated data protection
-
-**Setup Guide:** [Zilliz Cloud Data Import](https://docs.zilliz.com/docs/data-import)
+- **Docker**: [Milvus](https://milvus.io/) stored in `.database/`
+- **Cloud**: [Zilliz Cloud](https://zilliz.com/) for production deployments
+- **Configuration**: Use `uv run docling-japanese-books config-db --mode cloud` for cloud setup
+- **Schema**: Enhanced with image metadata and chunking method tracking
 
 ### Vector Quantization Options
 
-Different quantization methods offer trade-offs between storage space, accuracy, and search performance. Analysis based on **100 books** (80 pages each) with **BGE-M3 embeddings** (1,024 dimensions):
+Different quantization methods offer trade-offs between storage space, accuracy, and search performance. Analysis based on **100 books** (80 pages each) with **[BGE-M3 embeddings](https://huggingface.co/BAAI/bge-m3)** (1,024 dimensions):
 
 | **Method**   | **Total Storage** | **Compression** | **Accuracy Loss** | **Search Speed** | **Complexity** | **Best For**                      |
 | ------------ | ----------------- | --------------- | ----------------- | ---------------- | -------------- | --------------------------------- |
@@ -422,7 +319,7 @@ Different quantization methods offer trade-offs between storage space, accuracy,
 
 **Japanese Text Considerations**: Dense character encoding (kanji/hiragana/katakana) benefits from higher precision. BFloat16 offers the best balance of compression and semantic preservation for Japanese documents.
 
-**Database Support**: Most methods supported in Milvus, Qdrant, FAISS. BFloat16 requires Milvus 2.3+ or recent Qdrant versions.
+**Database Support**: Most methods supported in [Milvus](https://milvus.io/), [Qdrant](https://qdrant.tech/), [FAISS](https://github.com/facebookresearch/faiss). BFloat16 requires Milvus 2.3+ or recent Qdrant versions.
 
 > 📊 **Detailed Analysis**: Run `uv run scripts/quantization_analysis.py` to generate comprehensive storage analysis and implementation notes.
 
@@ -446,152 +343,28 @@ Different quantization methods offer trade-offs between storage space, accuracy,
 
 ## Testing
 
-This project includes comprehensive testing capabilities for both local development and CI/CD workflows.
-
-### Local Testing
-
-#### Quick Local Test
-
-Run the comprehensive test pipeline to verify all components:
-
 ```bash
-# Basic test (no models required)
-python test_pipeline.py
+# Run unit tests
+uv run python -m pytest tests/ -v
 
-# Or use the Makefile
-make test
-```
-
-#### Full Pipeline Test
-
-Test the complete pipeline with model downloads and document processing:
-
-```bash
-# Install dependencies and run full test
-make test-local
-
-# Or manually
-uv sync
-uv run docling-japanese-books download
-python test_pipeline.py
-```
-
-#### Manual Testing with Real Documents
-
-Test with the included Japanese karate book:
-
-```bash
-# Download models first
-uv run docling-japanese-books download
-
-# Process the test document
+# Test with real documents
 uv run docling-japanese-books process test_docs/
-
-# Search for content
 uv run docling-japanese-books search "空手道"
-uv run docling-japanese-books search "martial arts"
 ```
 
-## Development Roadmap
+## Future Enhancements
 
-- [ ] **Metadata Extraction**: Enhanced metadata from document properties
-- [ ] **Incremental Processing**: Skip already-processed documents
-- [ ] **Memory Optimization**: Streaming processing for large files
-- [ ] **GPU Acceleration**: Optional GPU support for vision models
-- [ ] Add database performance monitoring
-- [ ] Create backup and restore functionality
-- [ ] OpenAI tiktoken support
-- [ ] Separate image storage with linking to the relevant document, page and position
-- [ ] Implement image description generation
-- [ ] Generate training datasets in common formats
-  - [ ] Alpaca format
-  - [ ] ShareGPT format
-  - [ ] Instruction tuning datasets
-  - [ ] Question-answer pairs
-- [ ] Implement data splitting (train/validation/test)
-- [ ] Implement parallel processing
-  - [ ] Multi-threaded document processing
-  - [ ] Asynchronous I/O operations
-  - [ ] Process pool management
-- [ ] Add caching mechanisms
-  - [ ] Document cache
-  - [ ] Model cache, under ".models" directory
-  - [ ] Result cache
+- **Memory Optimization**: Streaming processing for large PDF files
+- **Incremental Processing**: Skip already-processed documents
+- **GPU Acceleration**: Optional GPU support for vision models
 
 ## Development
 
-### Code Quality Tools
-
-This project uses modern Python tooling:
-
 ```bash
-# Document processing
-uv run docling-process ./documents --dry-run    # Preview processing
-uv run docling-process ./documents              # Process documents
-
-# Vector database queries
-uv run docling-search "search query"            # Find similar text
-uv run docling-stats                            # Database statistics
-
-# Code quality tools
-uv run ruff check .          # Check for issues
-uv run ruff format .         # Format code
-uv run ruff check --fix .    # Fix auto-fixable issues
-
-# Type checking
-uv run mypy src/
-
-# Run all tests with coverage
-uv run python -m pytest tests/ -v
-
-# Run tests with coverage report
-uv run python -m pytest tests/ --cov=src/docling_japanese_books --cov-report=html
-
-# Quick test using configured shortcuts
-uv run pytest  # Uses pyproject.toml configuration
-```
-
-## Usage Examples
-
-### Basic Processing
-
-```bash
-# Create test documents
-mkdir -p test_documents
-echo "Sample text content" > test_documents/sample.txt
-
-# Process with dry run
-uv run docling-process test_documents --dry-run
-
-# Process for real
-uv run docling-process test_documents
-```
-
-### Advanced Usage
-
-```bash
-# Process with verbose logging
-uv run docling-process ./books --verbose
-
-# Check what files would be processed
-uv run docling-process ./large_collection --dry-run
-```
-
-### Programmatic Usage
-
-```python
-from docling_japanese_books.processor import DocumentProcessor
-from pathlib import Path
-
-# Initialize with hardcoded config
-processor = DocumentProcessor()
-
-# Discover files
-files = processor.discover_files(Path("./documents"))
-
-# Process files
-results = processor.process_files(files)
-print(f"Processed {results.success_count} files successfully")
+# Code quality
+uv run ruff check --fix .    # Lint and format with ruff
+uv run mypy src/            # Type checking with mypy
+uv run pytest              # Run tests with pytest
 ```
 
 ## Test Documents
@@ -646,8 +419,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 This project uses several open-source libraries and models:
 
-- **IBM Docling**: [MIT License](https://github.com/DS4SD/docling/blob/main/LICENSE)
-- **IBM Granite Models**: [Apache 2.0 License](https://huggingface.co/ibm-granite/granite-docling-258M)
-- **Milvus**: [Apache 2.0 License](https://github.com/milvus-io/milvus/blob/master/LICENSE)
-- **Sentence Transformers**: [Apache 2.0 License](https://github.com/UKPLab/sentence-transformers/blob/master/LICENSE)
-- **BGE-M3**: [MIT License](https://huggingface.co/BAAI/bge-m3)
+- **[IBM Docling](https://github.com/DS4SD/docling)**: [MIT License](https://github.com/DS4SD/docling/blob/main/LICENSE)
+- **[IBM Granite Models](https://huggingface.co/ibm-granite)**: [Apache 2.0 License](https://huggingface.co/ibm-granite/granite-docling-258M)
+- **[Milvus](https://milvus.io/)**: [Apache 2.0 License](https://github.com/milvus-io/milvus/blob/master/LICENSE)
+- **[Sentence Transformers](https://www.sbert.net/)**: [Apache 2.0 License](https://github.com/UKPLab/sentence-transformers/blob/master/LICENSE)
+- **[BGE-M3](https://huggingface.co/BAAI/bge-m3)**: [MIT License](https://huggingface.co/BAAI/bge-m3)
