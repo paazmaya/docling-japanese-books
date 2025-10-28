@@ -5,7 +5,7 @@ This extends the existing config.py to support multiple chunking strategies
 and model-specific optimizations.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from pydantic import Field
 
@@ -16,7 +16,7 @@ class EnhancedChunkingConfig(BaseChunkingConfig):
     """Extended chunking configuration with support for multiple strategies."""
 
     # Available models and their optimal configurations
-    model_configurations: Dict[str, Dict[str, Any]] = Field(
+    model_configurations: dict[str, dict[str, Any]] = Field(
         default={
             "BAAI/bge-m3": {
                 "supports_late_chunking": True,
@@ -55,7 +55,7 @@ class EnhancedChunkingConfig(BaseChunkingConfig):
     )
 
     # Strategy configurations
-    available_strategies: Dict[str, Dict[str, Any]] = Field(
+    available_strategies: dict[str, dict[str, Any]] = Field(
         default={
             "late": {
                 "name": "Late Chunking",
@@ -129,7 +129,7 @@ class EnhancedChunkingConfig(BaseChunkingConfig):
     )
 
     # Enhanced Japanese text processing
-    japanese_specific_settings: Dict[str, Any] = Field(
+    japanese_specific_settings: dict[str, Any] = Field(
         default={
             "enable_japanese_chunking": True,
             "sentence_patterns": [
@@ -149,7 +149,7 @@ class EnhancedChunkingConfig(BaseChunkingConfig):
     )
 
     # Performance optimization
-    performance_settings: Dict[str, Any] = Field(
+    performance_settings: dict[str, Any] = Field(
         default={
             "enable_caching": True,
             "cache_embeddings": True,
@@ -161,7 +161,7 @@ class EnhancedChunkingConfig(BaseChunkingConfig):
         description="Performance optimization settings",
     )
 
-    def get_model_config(self, model_name: str) -> Dict[str, Any]:
+    def get_model_config(self, model_name: str) -> dict[str, Any]:
         """Get configuration for specific model."""
         return self.model_configurations.get(
             model_name,
@@ -175,7 +175,7 @@ class EnhancedChunkingConfig(BaseChunkingConfig):
             },
         )
 
-    def get_strategy_info(self, strategy: str) -> Dict[str, Any]:
+    def get_strategy_info(self, strategy: str) -> dict[str, Any]:
         """Get information about chunking strategy."""
         return self.available_strategies.get(
             strategy,

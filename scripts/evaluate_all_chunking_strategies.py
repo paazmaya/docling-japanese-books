@@ -23,7 +23,7 @@ import logging
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -89,25 +89,25 @@ class ChunkingStrategyAnalyzer:
         コンピュータサイエンスにおける自然言語処理（しぜんげんごしょり、Natural Language Processing、NLP）は、
         人間が日常的に使っている自然言語をコンピュータに処理させる一連の技術である。
         自然言語処理は言語学、コンピュータ科学、人工知能の学際的な分野である。
-        
+
         近年、深層学習の発展により、自然言語処理技術は大幅に向上した。
         特に、Transformerアーキテクチャの登場は、機械翻訳、文書要約、質問応答などの
         タスクにおいて革命的な改善をもたらした。
-        
+
         日本語の自然言語処理は、特有の課題を持つ。漢字、ひらがな、カタカナという
         三つの文字体系の混在、語順の柔軟性、敬語システムの複雑さなどが挙げられる。
         これらの特徴により、日本語専用の前処理技術やモデルの開発が重要である。
-        
+
         埋め込み（エンベッディング）技術は、テキストを数値ベクトルに変換する技術であり、
         検索、分類、クラスタリングなどの下流タスクの基盤となっている。
         BGE-M3やJina Embeddings v4などの多言語対応モデルは、
         日本語テキストの処理において優れた性能を示している。
-        
+
         Late Chunkingは、従来のchunk-firstアプローチとは異なり、
         まず文書全体をエンベッディングしてからチャンクに分割する手法である。
         この手法により、チャンク間のコンテキストをより良く保持することができ、
         特に日本語のような複雑な文法構造を持つ言語において有効である。
-        
+
         量子化対応訓練（Quantization-Aware Training）は、
         モデルの計算効率を向上させる手法として注目されている。
         Jina Embeddings v4のような最新モデルでは、
@@ -115,8 +115,8 @@ class ChunkingStrategyAnalyzer:
         """
 
     def analyze_model_capabilities(
-        self, models: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        self, models: Optional[list[str]] = None
+    ) -> dict[str, Any]:
         """
         Analyze capabilities of each model with different chunking strategies.
 
@@ -288,8 +288,8 @@ class ChunkingStrategyAnalyzer:
         return analysis
 
     def _generate_model_recommendations(
-        self, model_name: str, model_analysis: Dict
-    ) -> List[str]:
+        self, model_name: str, model_analysis: dict
+    ) -> list[str]:
         """Generate recommendations for specific model."""
         recommendations = []
 
@@ -333,8 +333,8 @@ class ChunkingStrategyAnalyzer:
         return recommendations
 
     def _document_model_limitations(
-        self, model_name: str, model_analysis: Dict
-    ) -> List[str]:
+        self, model_name: str, model_analysis: dict
+    ) -> list[str]:
         """Document known limitations for model."""
         limitations = []
 
@@ -380,7 +380,7 @@ class ChunkingStrategyAnalyzer:
 
         return limitations
 
-    def _analyze_strategy_compatibility(self, models: Dict) -> Dict[str, Any]:
+    def _analyze_strategy_compatibility(self, models: dict) -> dict[str, Any]:
         """Analyze which strategies work with which models."""
         compatibility = {}
 
@@ -418,7 +418,7 @@ class ChunkingStrategyAnalyzer:
 
         return compatibility
 
-    def _generate_performance_summary(self, models: Dict) -> Dict[str, Any]:
+    def _generate_performance_summary(self, models: dict) -> dict[str, Any]:
         """Generate performance summary across all models."""
         summary = {
             "fastest_combinations": [],
@@ -482,7 +482,7 @@ class ChunkingStrategyAnalyzer:
 
         return summary
 
-    def _generate_global_recommendations(self, analysis: Dict) -> Dict[str, List[str]]:
+    def _generate_global_recommendations(self, analysis: dict) -> dict[str, list[str]]:
         """Generate global recommendations based on use cases."""
         return {
             "production_quality": [
@@ -507,7 +507,7 @@ class ChunkingStrategyAnalyzer:
             ],
         }
 
-    def _document_alternatives(self, analysis: Dict) -> Dict[str, Any]:
+    def _document_alternatives(self, analysis: dict) -> dict[str, Any]:
         """Document alternative approaches when preferred strategies fail."""
         alternatives = {}
 
@@ -544,7 +544,7 @@ class ChunkingStrategyAnalyzer:
 
         return alternatives
 
-    def generate_report(self, analysis: Dict, output_path: Optional[str] = None) -> str:
+    def generate_report(self, analysis: dict, output_path: Optional[str] = None) -> str:
         """Generate comprehensive human-readable report."""
         report_lines = [
             "# Comprehensive Chunking Strategy Analysis Report",
@@ -734,7 +734,7 @@ def main():
         logger.info(f"Analysis results saved to: {args.output}")
 
         # Generate and save report
-        report = analyzer.generate_report(analysis, args.report)
+        analyzer.generate_report(analysis, args.report)
 
         # Print summary to console
         print("\\n" + "=" * 80)

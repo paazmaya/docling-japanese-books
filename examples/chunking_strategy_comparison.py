@@ -8,7 +8,6 @@ in the docling-japanese-books project, including comparisons and recommendations
 import logging
 import time
 from pathlib import Path
-from typing import Dict, List
 
 import numpy as np
 
@@ -43,15 +42,15 @@ def load_sample_document() -> str:
     コンピュータサイエンスにおける自然言語処理（しぜんげんごしょり、Natural Language Processing、NLP）は、
     人間が日常的に使っている自然言語をコンピュータに処理させる一連の技術である。
     自然言語処理は言語学、コンピュータ科学、人工知能の学際的な分野である。
-    
+
     近年、深層学習の発展により、自然言語処理技術は大幅に向上した。
     特に、Transformerアーキテクチャの登場は、機械翻訳、文書要約、質問応答などの
     タスクにおいて革命的な改善をもたらした。
-    
+
     日本語の自然言語処理は、特有の課題を持つ。漢字、ひらがな、カタカナという
     三つの文字体系の混在、語順の柔軟性、敬語システムの複雑さなどが挙げられる。
     これらの特徴により、日本語専用の前処理技術や モデルの開発が重要である。
-    
+
     埋め込み（エンベッディング）技術は、テキストを数値ベクトルに変換する技術であり、
     検索、分類、クラスタリングなどの下流タスクの基盤となっている。
     BGE-M3やJina Embeddings v4などの多言語対応モデルは、
@@ -61,7 +60,7 @@ def load_sample_document() -> str:
 
 def evaluate_chunking_strategy(
     document: str, model_name: str, strategy: str, task: str = None
-) -> Dict:
+) -> dict:
     """Evaluate a specific chunking strategy."""
     logger.info(f"Evaluating {strategy} chunking with {model_name}")
 
@@ -115,7 +114,7 @@ def evaluate_chunking_strategy(
         }
 
 
-def compare_all_strategies() -> Dict:
+def compare_all_strategies() -> dict:
     """Compare all chunking strategies across all models."""
     document = load_sample_document()
 
@@ -146,7 +145,7 @@ def compare_all_strategies() -> Dict:
     return results
 
 
-def print_comparison_report(results: Dict):
+def print_comparison_report(results: dict):
     """Print a formatted comparison report."""
     print("\n" + "=" * 80)
     print("CHUNKING STRATEGY COMPARISON REPORT")
@@ -180,14 +179,14 @@ def print_comparison_report(results: Dict):
                 print(f"   Error: {result['error']}")
 
 
-def generate_recommendations(results: Dict) -> List[str]:
+def generate_recommendations(results: dict) -> list[str]:
     """Generate recommendations based on evaluation results."""
     recommendations = []
 
     # Find best performing combinations
     successful_results = []
-    for model_name, model_results in results.items():
-        for strategy, result in model_results.items():
+    for _model_name, model_results in results.items():
+        for _strategy, result in model_results.items():
             if result["success"]:
                 successful_results.append(result)
 

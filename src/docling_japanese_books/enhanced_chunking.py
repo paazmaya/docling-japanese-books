@@ -7,7 +7,7 @@ more models and provides hybrid chunking strategies for better performance.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import torch
@@ -22,7 +22,7 @@ class ChunkingStrategy(ABC):
     @abstractmethod
     def process_document(
         self, document: str, max_chunk_length: int = 500
-    ) -> Tuple[List[str], List[np.ndarray]]:
+    ) -> tuple[list[str], list[np.ndarray]]:
         """Process document and return chunks with embeddings."""
         pass
 
@@ -111,7 +111,7 @@ class UniversalLateChunking(ChunkingStrategy):
 
     def chunk_document(
         self, document: str, max_chunk_length: int = 500
-    ) -> Tuple[List[str], List[Tuple[int, int]]]:
+    ) -> tuple[list[str], list[tuple[int, int]]]:
         """Enhanced chunking with better Japanese text handling."""
         import re
 
@@ -176,10 +176,10 @@ class UniversalLateChunking(ChunkingStrategy):
     def late_chunk_embeddings(
         self,
         token_embeddings: torch.Tensor,
-        span_annotations: List[Tuple[int, int]],
+        span_annotations: list[tuple[int, int]],
         document: str,
         pooling: str = "mean",
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """Apply late chunking to token embeddings."""
         if not self._supports_token_level:
             # Fallback: return sentence embedding for each chunk
@@ -216,7 +216,7 @@ class UniversalLateChunking(ChunkingStrategy):
 
     def process_document(
         self, document: str, max_chunk_length: int = 500
-    ) -> Tuple[List[str], List[np.ndarray]]:
+    ) -> tuple[list[str], list[np.ndarray]]:
         """Process document with enhanced late chunking."""
         self.load_model()
 
@@ -240,7 +240,7 @@ class UniversalLateChunking(ChunkingStrategy):
 class HybridChunkingStrategy(ChunkingStrategy):
     """Hybrid strategy combining multiple chunking approaches."""
 
-    def __init__(self, model_name: str, strategies: List[str] = None):
+    def __init__(self, model_name: str, strategies: list[str] = None):
         """Initialize hybrid chunking.
 
         Args:
@@ -259,7 +259,7 @@ class HybridChunkingStrategy(ChunkingStrategy):
 
     def traditional_chunking(
         self, document: str, max_chunk_length: int = 500
-    ) -> Tuple[List[str], List[np.ndarray]]:
+    ) -> tuple[list[str], list[np.ndarray]]:
         """Traditional chunk-first approach."""
         chunks, _ = self.late_chunker.chunk_document(document, max_chunk_length)
         embeddings = self.model.encode(chunks)
@@ -267,7 +267,7 @@ class HybridChunkingStrategy(ChunkingStrategy):
 
     def hierarchical_chunking(
         self, document: str
-    ) -> Tuple[List[str], List[np.ndarray]]:
+    ) -> tuple[list[str], list[np.ndarray]]:
         """Multi-level chunking for different query types."""
         # Small chunks for detailed queries
         small_chunks, small_embeddings = self.process_chunks(document, max_length=200)
@@ -298,7 +298,7 @@ class HybridChunkingStrategy(ChunkingStrategy):
 
     def process_chunks(
         self, document: str, max_length: int
-    ) -> Tuple[List[str], List[np.ndarray]]:
+    ) -> tuple[list[str], list[np.ndarray]]:
         """Process document with specific chunk size."""
         if "late" in self.strategies:
             return self.late_chunker.process_document(document, max_length)
@@ -307,7 +307,7 @@ class HybridChunkingStrategy(ChunkingStrategy):
 
     def process_document(
         self, document: str, max_chunk_length: int = 500
-    ) -> Tuple[List[str], List[np.ndarray]]:
+    ) -> tuple[list[str], list[np.ndarray]]:
         """Process document with hybrid approach."""
         self.load_model()
 

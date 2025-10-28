@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -116,7 +116,7 @@ class DatabaseConfig(BaseModel):
         else:
             return self.milvus_uri
 
-    def get_connection_params(self) -> Dict[str, str]:
+    def get_connection_params(self) -> dict[str, str]:
         """Get connection parameters for Milvus based on deployment mode."""
         if self.deployment_mode == "cloud":
             return {
@@ -158,7 +158,7 @@ class ChunkingConfig(BaseModel):
     )
 
     # Model-specific configurations
-    model_specific_settings: Dict[str, Any] = Field(
+    model_specific_settings: dict[str, Any] = Field(
         default={
             "BAAI/bge-m3": {
                 "preferred_strategy": "late",
@@ -197,7 +197,7 @@ class ChunkingConfig(BaseModel):
     )
 
     # Strategy-specific settings
-    strategy_settings: Dict[str, Any] = Field(
+    strategy_settings: dict[str, Any] = Field(
         default={
             "late": {
                 "description": "Embed full document first, then chunk and pool tokens",
@@ -255,7 +255,7 @@ class ChunkingConfig(BaseModel):
     )
 
     # Japanese-specific enhancements
-    japanese_optimization: Dict[str, Any] = Field(
+    japanese_optimization: dict[str, Any] = Field(
         default={
             "enable_japanese_chunking": True,
             "respect_sentence_boundaries": True,
@@ -274,7 +274,7 @@ class ChunkingConfig(BaseModel):
         description="Japanese-specific text processing optimizations",
     )
 
-    def get_model_config(self, model_name: str) -> Dict[str, Any]:
+    def get_model_config(self, model_name: str) -> dict[str, Any]:
         """Get configuration for specific model."""
         return self.model_specific_settings.get(
             model_name,
@@ -300,7 +300,7 @@ class ChunkingConfig(BaseModel):
             return model_config.get("preferred_strategy", "traditional")
         return self.chunking_strategy
 
-    def get_fallback_strategies(self, model_name: str) -> List[str]:
+    def get_fallback_strategies(self, model_name: str) -> list[str]:
         """Get fallback strategies for model."""
         model_config = self.get_model_config(model_name)
         return model_config.get("fallback_strategies", ["traditional"])

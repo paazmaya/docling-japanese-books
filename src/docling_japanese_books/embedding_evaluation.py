@@ -76,7 +76,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -85,9 +85,18 @@ from .config import config
 from .enhanced_chunking import ChunkingStrategy, create_chunking_strategy
 from .late_chunking import LateChunkingProcessor
 
+# Model name constants to avoid duplication
+BGE_M3_MODEL = "BAAI/bge-m3"
+SNOWFLAKE_ARCTIC_MODEL = "Snowflake/snowflake-arctic-embed-l-v2.0"
+JINA_V4_MODEL = "jinaai/jina-embeddings-v4"
+ALL_MINILM_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
 # Jina v4 task constants
 # Supported tasks: 'retrieval', 'text-matching', 'code'
 JINA_TASK_RETRIEVAL = "retrieval"
+
+# Common requirement descriptions
+ANY_EMBEDDING_MODEL = "Any embedding model"
 
 
 @dataclass
@@ -132,16 +141,16 @@ class ComprehensiveEvaluationResults:
     """Results from comprehensive multi-strategy evaluation."""
 
     document_id: str
-    model_results: Dict[str, Dict[str, MultiStrategyEvaluationMetrics]] = field(
+    model_results: dict[str, dict[str, MultiStrategyEvaluationMetrics]] = field(
         default_factory=lambda: {}
     )
     best_overall: Optional[MultiStrategyEvaluationMetrics] = None
-    best_per_model: Dict[str, MultiStrategyEvaluationMetrics] = field(
+    best_per_model: dict[str, MultiStrategyEvaluationMetrics] = field(
         default_factory=lambda: {}
     )
-    strategy_rankings: Dict[str, List[str]] = field(default_factory=lambda: {})
-    recommendations: List[str] = field(default_factory=lambda: [])
-    details: Dict[str, Any] = field(default_factory=lambda: {})
+    strategy_rankings: dict[str, list[str]] = field(default_factory=lambda: {})
+    recommendations: list[str] = field(default_factory=lambda: [])
+    details: dict[str, Any] = field(default_factory=lambda: {})
 
 
 @dataclass
@@ -157,7 +166,7 @@ class EvaluationResults:
     snowflake_improvement: float = 0.0
     jina_v4_improvement: float = 0.0
     best_model: str = ""
-    details: Dict[str, Any] = field(default_factory=lambda: {})
+    details: dict[str, Any] = field(default_factory=lambda: {})
 
 
 class MultiStrategyEmbeddingEvaluator:
@@ -184,7 +193,7 @@ class MultiStrategyEmbeddingEvaluator:
         """Initialize the multi-strategy evaluator."""
         self.logger = logging.getLogger(__name__)
         self.config = config
-        
+
         # Type annotations for instance variables
         self.model_configs: Dict[str, Dict[str, Any]]
         self.strategy_definitions: Dict[str, Dict[str, Any]]
@@ -203,7 +212,7 @@ class MultiStrategyEmbeddingEvaluator:
 
         # Model configurations with supported strategies
         self.model_configs = {
-            "BAAI/bge-m3": {
+            BGE_M3_MODEL: {
                 "supported_strategies": [
                     "late",
                     "traditional",
@@ -214,7 +223,7 @@ class MultiStrategyEmbeddingEvaluator:
                 "task": None,
                 "notes": "Best late chunking support, multilingual optimization",
             },
-            "Snowflake/snowflake-arctic-embed-l-v2.0": {
+            SNOWFLAKE_ARCTIC_MODEL: {
                 "supported_strategies": [
                     "traditional",
                     "hybrid",
@@ -225,7 +234,7 @@ class MultiStrategyEmbeddingEvaluator:
                 "task": None,
                 "notes": "High-quality embeddings, late chunking approximated",
             },
-            "jinaai/jina-embeddings-v4": {
+            JINA_V4_MODEL: {
                 "supported_strategies": [
                     "traditional",
                     "hybrid",
@@ -236,7 +245,7 @@ class MultiStrategyEmbeddingEvaluator:
                 "task": "retrieval",
                 "notes": "Quantization-aware, task-specific optimization",
             },
-            "sentence-transformers/all-MiniLM-L6-v2": {
+            ALL_MINILM_MODEL: {
                 "supported_strategies": ["traditional", "hybrid", "hierarchical"],
                 "optimal_chunk_size": 384,
                 "task": None,
@@ -261,34 +270,34 @@ class MultiStrategyEmbeddingEvaluator:
             "traditional": {
                 "name": "Traditional Chunking",
                 "description": "Chunk first → embed each chunk independently",
-                "requirements": "Any embedding model",
+                "requirements": ANY_EMBEDDING_MODEL,
                 "alternatives": [],
             },
             "hybrid": {
                 "name": "Hybrid Chunking",
                 "description": "Best available strategy with fallbacks",
-                "requirements": "Any embedding model",
+                "requirements": ANY_EMBEDDING_MODEL,
                 "alternatives": ["traditional"],
             },
             "hierarchical": {
                 "name": "Hierarchical Chunking",
                 "description": "Multiple chunk sizes for different query types",
-                "requirements": "Any embedding model",
+                "requirements": ANY_EMBEDDING_MODEL,
                 "alternatives": ["traditional", "hybrid"],
             },
         }
 
         # Initialize chunking strategies cache
-        self.chunking_strategies: Dict[str, Dict[str, ChunkingStrategy]] = {}
+        self.chunking_strategies: dict[str, dict[str, ChunkingStrategy]] = {}
 
-    def get_supported_strategies(self, model_name: str) -> List[str]:
+    def get_supported_strategies(self, model_name: str) -> list[str]:
         """Get list of supported chunking strategies for a model."""
         config = self.model_configs.get(model_name, {})
         return config.get("supported_strategies", ["traditional"])
 
     def create_chunking_strategy(
         self, model_name: str, strategy: str
-    ) -> Tuple[ChunkingStrategy, bool, Optional[str]]:
+    ) -> tuple[ChunkingStrategy, bool, Optional[str]]:
         """
         Create chunking strategy for model, with fallback if needed.
 
@@ -382,7 +391,7 @@ class MultiStrategyEmbeddingEvaluator:
 
             # Japanese-specific evaluation
             japanese_score = self._evaluate_japanese_specificity(
-                chunks, embeddings, model_name
+                embeddings, model_name
             )
 
             return MultiStrategyEvaluationMetrics(
@@ -390,16 +399,16 @@ class MultiStrategyEmbeddingEvaluator:
                 strategy_name=strategy,
                 chunking_method=f"{strategy}{'_fallback' if is_fallback else ''}",
                 task=self.model_configs.get(model_name, {}).get("task"),
-                avg_cosine_similarity=np.mean([np.mean(emb) for emb in embeddings])
+                avg_cosine_similarity=float(np.mean([np.mean(emb) for emb in embeddings]))
                 if embeddings
                 else 0.0,
-                std_cosine_similarity=np.std([np.mean(emb) for emb in embeddings])
+                std_cosine_similarity=float(np.std([np.mean(emb) for emb in embeddings]))
                 if embeddings
                 else 0.0,
                 processing_time=processing_time,
                 num_chunks=num_chunks,
                 avg_chunk_length=int(avg_chunk_length),
-                context_preservation_score=avg_context_preservation,
+                context_preservation_score=float(avg_context_preservation),
                 japanese_specific_score=japanese_score,
                 embedding_dimension=embedding_dim,
                 strategy_supported=not is_fallback,
@@ -434,7 +443,7 @@ class MultiStrategyEmbeddingEvaluator:
         return float(dot_product / (norm_a * norm_b))
 
     def _evaluate_japanese_specificity(
-        self, chunks: List[str], embeddings: List[Any], model_type: str
+        self, embeddings: List[Any], model_type: str
     ) -> float:
         """Evaluate performance on Japanese-specific queries."""
         if not embeddings:
@@ -461,8 +470,8 @@ class MultiStrategyEmbeddingEvaluator:
     def evaluate_all_strategies(
         self,
         document: str,
-        models: Optional[List[str]] = None,
-        strategies: Optional[List[str]] = None,
+        models: Optional[list[str]] = None,
+        strategies: Optional[list[str]] = None,
     ) -> ComprehensiveEvaluationResults:
         """Evaluate all models with all supported strategies."""
 
@@ -501,10 +510,10 @@ class MultiStrategyEmbeddingEvaluator:
         self, results: ComprehensiveEvaluationResults
     ) -> List[str]:
         """Generate recommendations based on evaluation results."""
-        recommendations = []
+        recommendations: List[str] = []
 
         # Find best overall performer
-        all_metrics = []
+        all_metrics: List[MultiStrategyEvaluationMetrics] = []
         for model_results in results.model_results.values():
             for metrics in model_results.values():
                 if metrics.strategy_supported and not metrics.error_message:
@@ -536,7 +545,7 @@ class MultiStrategyEmbeddingEvaluator:
         )
 
         # Strategy-specific recommendations
-        strategy_performance = {}
+        strategy_performance: Dict[str, List[float]] = {}
         for metrics in all_metrics:
             if metrics.strategy_name not in strategy_performance:
                 strategy_performance[metrics.strategy_name] = []
@@ -595,7 +604,7 @@ class EmbeddingEvaluator:
                 / "embeddings_comparison"
             )
             self.traditional_model = SentenceTransformer(
-                "sentence-transformers/all-MiniLM-L6-v2", cache_folder=str(cache_folder)
+                ALL_MINILM_MODEL, cache_folder=str(cache_folder)
             )
 
         if self.snowflake_arctic_model is None:
@@ -606,7 +615,7 @@ class EmbeddingEvaluator:
                 / "embeddings_comparison"
             )
             self.snowflake_arctic_model = SentenceTransformer(
-                "Snowflake/snowflake-arctic-embed-l-v2.0",
+                SNOWFLAKE_ARCTIC_MODEL,
                 cache_folder=str(cache_folder),
             )
 
@@ -620,7 +629,7 @@ class EmbeddingEvaluator:
                 / "embeddings_comparison"
             )
             self.jina_v4_model = SentenceTransformer(
-                "jinaai/jina-embeddings-v4",
+                JINA_V4_MODEL,
                 cache_folder=str(cache_folder),
                 trust_remote_code=True,
                 model_kwargs={"default_task": JINA_TASK_RETRIEVAL},
@@ -653,7 +662,7 @@ class EmbeddingEvaluator:
 
         return chunks
 
-    def calculate_cosine_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
+    def calculate_cosine_similarity(self, vec1: Any, vec2: Any) -> float:
         """Calculate cosine similarity between two vectors."""
         dot_product = np.dot(vec1, vec2)
         norm_a = np.linalg.norm(vec1)
@@ -665,7 +674,7 @@ class EmbeddingEvaluator:
         return dot_product / (norm_a * norm_b)
 
     def evaluate_context_preservation(
-        self, document: str, chunks: list[str], embeddings: list[np.ndarray]
+        self, document: str, chunks: List[str], embeddings: List[Any]
     ) -> float:
         """Evaluate how well chunks preserve document context."""
         if len(chunks) < 2:
@@ -682,8 +691,8 @@ class EmbeddingEvaluator:
 
     def evaluate_japanese_specificity(
         self,
-        chunks: list[str],
-        embeddings: list[np.ndarray],
+        chunks: List[str],
+        embeddings: List[Any],
         model_type: str = "traditional",
     ) -> float:
         """Evaluate performance on Japanese-specific queries."""
@@ -745,7 +754,7 @@ class EmbeddingEvaluator:
 
         # Calculate metrics
         traditional_metrics = self._calculate_metrics(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_name=ALL_MINILM_MODEL,
             chunking_method="traditional",
             document=document,
             **traditional_data,
@@ -759,14 +768,14 @@ class EmbeddingEvaluator:
         )
 
         snowflake_arctic_metrics = self._calculate_metrics(
-            model_name="Snowflake/snowflake-arctic-embed-l-v2.0",
+            model_name=SNOWFLAKE_ARCTIC_MODEL,
             chunking_method="snowflake_arctic",
             document=document,
             **snowflake_data,
         )
 
         jina_v4_metrics = self._calculate_metrics(
-            model_name="jinaai/jina-embeddings-v4",
+            model_name=JINA_V4_MODEL,
             chunking_method="jina_v4",
             document=document,
             **jina_v4_data,
@@ -811,7 +820,7 @@ class EmbeddingEvaluator:
             },
         )
 
-    def _evaluate_traditional_approach(self, document: str) -> dict:
+    def _evaluate_traditional_approach(self, document: str) -> Dict[str, Any]:
         """Evaluate traditional chunking approach."""
         start_time = time.time()
         chunks = self.simple_traditional_chunking(document)
@@ -824,7 +833,7 @@ class EmbeddingEvaluator:
             "processing_time": processing_time,
         }
 
-    def _evaluate_late_chunking_approach(self, document: str) -> dict:
+    def _evaluate_late_chunking_approach(self, document: str) -> Dict[str, Any]:
         """Evaluate Late Chunking approach."""
         start_time = time.time()
         chunks, embeddings = self.late_chunking.process_document(document)
@@ -841,7 +850,7 @@ class EmbeddingEvaluator:
             "processing_time": processing_time,
         }
 
-    def _evaluate_snowflake_arctic_approach(self, document: str) -> dict:
+    def _evaluate_snowflake_arctic_approach(self, document: str) -> Dict[str, Any]:
         """Evaluate Snowflake Arctic approach with traditional chunking."""
         start_time = time.time()
         chunks = self.simple_traditional_chunking(document)
@@ -854,7 +863,7 @@ class EmbeddingEvaluator:
             "processing_time": processing_time,
         }
 
-    def _evaluate_jina_v4_approach(self, document: str) -> dict:
+    def _evaluate_jina_v4_approach(self, document: str) -> Dict[str, Any]:
         """Evaluate Jina Embeddings v4 approach with traditional chunking and proper task specification."""
         start_time = time.time()
         chunks = self.simple_traditional_chunking(document)
