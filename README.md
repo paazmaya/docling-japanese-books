@@ -222,12 +222,12 @@ uv run docling-japanese-books evaluate --output detailed_results.json --verbose
 
 The project supports multiple embedding models for comprehensive evaluation. Tested on Japanese PDF documents from `test_docs/`:
 
-| Model                      | Performance | Best For                           |
-| -------------------------- | ----------- | ---------------------------------- |
-| **[Jina Embeddings v4](https://jina.ai/embeddings/)**     | +201%       | Production use, quantization-aware |
-| **[BGE-M3](https://huggingface.co/BAAI/bge-m3) (Late Chunking)** | +116%       | Context preservation, multilingual |
-| **[all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)**       | Baseline    | Traditional baseline comparison    |
-| **[Snowflake Arctic v2.0](https://huggingface.co/Snowflake/snowflake-arctic-embed-l)**  | -10%        | Comparison (underperforms on JP)   |
+| Model                                                                                  | Performance | Best For                           |
+| -------------------------------------------------------------------------------------- | ----------- | ---------------------------------- |
+| **[Jina Embeddings v4](https://jina.ai/embeddings/)**                                  | +201%       | Production use, quantization-aware |
+| **[BGE-M3](https://huggingface.co/BAAI/bge-m3) (Late Chunking)**                       | +116%       | Context preservation, multilingual |
+| **[all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)**  | Baseline    | Traditional baseline comparison    |
+| **[Snowflake Arctic v2.0](https://huggingface.co/Snowflake/snowflake-arctic-embed-l)** | -10%        | Comparison (underperforms on JP)   |
 
 **Available Evaluation Scripts:**
 

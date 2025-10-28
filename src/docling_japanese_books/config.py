@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -115,24 +116,24 @@ class DatabaseConfig(BaseModel):
         else:
             return self.milvus_uri
 
-    def get_connection_params(self) -> dict:
-        """Build Milvus client connection parameters."""
-        params = {
-            "uri": self.get_connection_uri(),
-        }
-
+    def get_connection_params(self) -> Dict[str, str]:
+        """Get connection parameters for Milvus based on deployment mode."""
         if self.deployment_mode == "cloud":
-            if not self.zilliz_api_key:
-                raise ValueError(
-                    "Zilliz Cloud API key is required for cloud deployment mode"
-                )
-            params["token"] = self.zilliz_api_key
-
-        return params
+            return {
+                "uri": self.zilliz_cloud_uri,
+                "token": self.zilliz_api_key,
+            }
+        else:
+            return {"uri": self.get_connection_uri()}
 
 
 class ChunkingConfig(BaseModel):
-    """Text chunking and embedding configuration for Japanese documents."""
+    """
+    Enhanced text chunking and embedding configuration for Japanese documents.
+
+    This configuration supports multiple chunking strategies per model with automatic
+    fallback mechanisms and model-specific optimizations.
+    """
 
     tokenizer_model: str = Field(
         default="ibm-granite/granite-docling-258M",
@@ -140,26 +141,179 @@ class ChunkingConfig(BaseModel):
     )
     embedding_model: str = Field(
         default="BAAI/bge-m3",
-        description="BGE-M3 multilingual embedding model",
+        description="Primary embedding model - BGE-M3 multilingual embedding model",
     )
-    max_chunk_tokens: int = Field(default=512, description="Maximum tokens per chunk")
+
+    # Enhanced chunking strategy configuration
+    chunking_strategy: str = Field(
+        default="auto",
+        description="""
+        Chunking strategy selection:
+        - 'auto': Automatically select best strategy per model
+        - 'late': Late chunking (embed full document, then chunk)
+        - 'traditional': Chunk first, then embed each chunk
+        - 'hybrid': Model-adaptive strategy with fallbacks
+        - 'hierarchical': Multiple chunk sizes for different queries
+        """,
+    )
+
+    # Model-specific configurations
+    model_specific_settings: Dict[str, Any] = Field(
+        default={
+            "BAAI/bge-m3": {
+                "preferred_strategy": "late",
+                "fallback_strategies": ["hybrid", "traditional"],
+                "optimal_chunk_size": 400,
+                "supports_late_chunking": True,
+                "task": None,
+                "notes": "Multilingual model optimized for context preservation",
+            },
+            "jinaai/jina-embeddings-v4": {
+                "preferred_strategy": "hybrid",
+                "fallback_strategies": ["traditional"],
+                "optimal_chunk_size": 512,
+                "supports_late_chunking": False,
+                "task": "retrieval",
+                "notes": "Quantization-aware with task-specific optimization",
+            },
+            "Snowflake/snowflake-arctic-embed-l-v2.0": {
+                "preferred_strategy": "traditional",
+                "fallback_strategies": ["hybrid"],
+                "optimal_chunk_size": 512,
+                "supports_late_chunking": False,
+                "task": None,
+                "notes": "High-quality embeddings optimized for speed",
+            },
+            "sentence-transformers/all-MiniLM-L6-v2": {
+                "preferred_strategy": "traditional",
+                "fallback_strategies": ["hybrid"],
+                "optimal_chunk_size": 384,
+                "supports_late_chunking": False,
+                "task": None,
+                "notes": "Lightweight baseline model",
+            },
+        },
+        description="Model-specific chunking preferences and capabilities",
+    )
+
+    # Strategy-specific settings
+    strategy_settings: Dict[str, Any] = Field(
+        default={
+            "late": {
+                "description": "Embed full document first, then chunk and pool tokens",
+                "memory_intensive": True,
+                "processing_time": "slow",
+                "context_preservation": "excellent",
+                "best_for": [
+                    "Japanese text",
+                    "contextual queries",
+                    "complex documents",
+                ],
+            },
+            "traditional": {
+                "description": "Chunk document first, then embed each chunk",
+                "memory_intensive": False,
+                "processing_time": "fast",
+                "context_preservation": "limited",
+                "best_for": ["keyword search", "high throughput", "simple queries"],
+            },
+            "hybrid": {
+                "description": "Adaptive strategy using best available method per model",
+                "memory_intensive": "variable",
+                "processing_time": "balanced",
+                "context_preservation": "good",
+                "best_for": ["production systems", "mixed query types", "reliability"],
+            },
+            "hierarchical": {
+                "description": "Multiple chunk sizes for different query granularities",
+                "memory_intensive": True,
+                "processing_time": "slow",
+                "context_preservation": "variable",
+                "best_for": ["advanced search", "diverse queries", "research systems"],
+            },
+        },
+        description="Chunking strategy characteristics and use cases",
+    )
+
+    # Legacy settings (maintained for backward compatibility)
+    max_chunk_tokens: int = Field(
+        default=512, description="Maximum tokens per chunk (legacy)"
+    )
     chunk_overlap: int = Field(default=50, description="Token overlap between chunks")
     min_chunk_length: int = Field(
         default=20, description="Minimum chunk length (tokens)"
-    )
-    chunking_strategy: str = Field(
-        default="hybrid", description="Chunking strategy type"
     )
     merge_list_items: bool = Field(
         default=True, description="Merge list items during chunking"
     )
     use_late_chunking: bool = Field(
         default=True,
-        description="Enable Late Chunking for better context preservation",
+        description="Enable Late Chunking for better context preservation (legacy)",
     )
     merge_peers: bool = Field(
         default=True, description="Merge peer chunks in hybrid strategy"
     )
+
+    # Japanese-specific enhancements
+    japanese_optimization: Dict[str, Any] = Field(
+        default={
+            "enable_japanese_chunking": True,
+            "respect_sentence_boundaries": True,
+            "preserve_honorifics": True,
+            "handle_mixed_scripts": True,
+            "sentence_patterns": [
+                r"[。！？]+",  # Standard Japanese endings
+                r"[\.!?]+",  # Western punctuation
+                r"」[。！？]*",  # Quote endings
+                r"』[。！？]*",  # Book quote endings
+            ],
+            "min_chunk_chars": 50,
+            "optimal_chunk_chars": 400,
+            "max_chunk_chars": 800,
+        },
+        description="Japanese-specific text processing optimizations",
+    )
+
+    def get_model_config(self, model_name: str) -> Dict[str, Any]:
+        """Get configuration for specific model."""
+        return self.model_specific_settings.get(
+            model_name,
+            {
+                "preferred_strategy": "traditional",
+                "fallback_strategies": ["hybrid"],
+                "optimal_chunk_size": 500,
+                "supports_late_chunking": False,
+                "task": None,
+                "notes": "Default configuration for unknown model",
+            },
+        )
+
+    def get_optimal_chunk_size(self, model_name: str) -> int:
+        """Get optimal chunk size for model."""
+        model_config = self.get_model_config(model_name)
+        return model_config.get("optimal_chunk_size", self.max_chunk_tokens)
+
+    def get_preferred_strategy(self, model_name: str) -> str:
+        """Get preferred chunking strategy for model."""
+        if self.chunking_strategy == "auto":
+            model_config = self.get_model_config(model_name)
+            return model_config.get("preferred_strategy", "traditional")
+        return self.chunking_strategy
+
+    def get_fallback_strategies(self, model_name: str) -> List[str]:
+        """Get fallback strategies for model."""
+        model_config = self.get_model_config(model_name)
+        return model_config.get("fallback_strategies", ["traditional"])
+
+    def supports_late_chunking(self, model_name: str) -> bool:
+        """Check if model supports late chunking."""
+        model_config = self.get_model_config(model_name)
+        return model_config.get("supports_late_chunking", False)
+
+    def get_task_for_model(self, model_name: str) -> Optional[str]:
+        """Get task specification for task-aware models."""
+        model_config = self.get_model_config(model_name)
+        return model_config.get("task")
 
 
 class OutputConfig(BaseModel):

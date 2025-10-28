@@ -52,6 +52,7 @@ def display_config_panel(console: Console, directory: Path) -> None:
             f"🎯 Output Directory: [cyan]{config.output.output_base_dir}[/cyan]\n"
             f"🔧 Granite Model: [yellow]{config.chunking.tokenizer_model}[/yellow]\n"
             f"🧮 Embedding Model: [yellow]{config.chunking.embedding_model}[/yellow]\n"
+            f"📚 Chunking Strategy: [yellow]{config.chunking.get_preferred_strategy(config.chunking.embedding_model)}[/yellow]\n"
             f"👁️  Vision Model: [bright_magenta]{vision_display}[/bright_magenta]\n"
             f"🖼️  Image Storage: [bright_cyan]{config.output.images_output_dir}[/bright_cyan]\n"
             f"📊 Vector Database: [green]{db_display}[/green]\n"
@@ -575,6 +576,348 @@ def config_db(
                 "💡 Check your Zilliz Cloud credentials and network connection"
             )
         sys.exit(1)
+
+
+@cli.group()
+def chunking() -> None:
+    """Chunking strategy management and evaluation commands."""
+    pass
+
+
+@chunking.command()
+@click.option(
+    "--models",
+    type=str,
+    help="Comma-separated list of models to analyze (default: all supported models)",
+)
+@click.option(
+    "--strategies",
+    type=str,
+    help="Comma-separated list of strategies to test (default: all strategies)",
+)
+@click.option(
+    "--output",
+    type=click.Path(path_type=Path),
+    default="chunking_analysis.json",
+    help="Output file for detailed analysis results",
+)
+@click.option(
+    "--report",
+    type=click.Path(path_type=Path),
+    default="chunking_report.md",
+    help="Output file for human-readable report",
+)
+@click.option(
+    "--quick", is_flag=True, help="Quick analysis with minimal models for testing"
+)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
+def analyze(
+    models: str, strategies: str, output: Path, report: Path, quick: bool, verbose: bool
+) -> None:
+    """
+    Comprehensive analysis of chunking strategies across embedding models.
+
+    This command evaluates all available chunking strategies (late, traditional,
+    hybrid, hierarchical) with all supported embedding models, documenting their
+    capabilities, limitations, and performance characteristics.
+
+    Results include:
+    - Model-strategy compatibility matrix
+    - Performance benchmarks and recommendations
+    - Fallback mechanisms and alternatives
+    - Japanese-specific evaluation metrics
+    - Production deployment recommendations
+
+    Examples:
+
+        # Analyze all models and strategies
+        docling-japanese-books chunking analyze
+
+        # Quick test with minimal models
+        docling-japanese-books chunking analyze --quick
+
+        # Test specific models
+        docling-japanese-books chunking analyze --models "BAAI/bge-m3,jinaai/jina-embeddings-v4"
+
+        # Analyze with custom output files
+        docling-japanese-books chunking analyze --output results.json --report analysis.md
+    """
+    console = Console()
+    log_level = "DEBUG" if verbose else "INFO"
+    setup_logging(log_level)
+
+    console.print("🔍 [bold blue]Chunking Strategy Analysis[/bold blue]")
+    console.print()
+
+    # Parse model list
+    model_list = None
+    if models:
+        model_list = [m.strip() for m in models.split(",")]
+        console.print(f"📋 Testing models: {', '.join(model_list)}")
+    elif quick:
+        model_list = ["BAAI/bge-m3", "sentence-transformers/all-MiniLM-L6-v2"]
+        console.print("⚡ Quick mode: Testing minimal model set")
+    else:
+        console.print("📋 Testing all available models")
+
+    # Parse strategy list
+    if strategies:
+        strategy_list = [s.strip() for s in strategies.split(",")]
+        console.print(f"⚙️  Testing strategies: {', '.join(strategy_list)}")
+    else:
+        console.print("⚙️  Testing all available strategies")
+
+    console.print(f"💾 Results will be saved to: {output}")
+    console.print(f"📄 Report will be saved to: {report}")
+    console.print()
+
+    try:
+        # Import and run the analysis
+        import sys
+        from pathlib import Path as ImportPath
+
+        # Add scripts directory to path
+        scripts_dir = ImportPath(__file__).parent.parent.parent / "scripts"
+        sys.path.insert(0, str(scripts_dir))
+
+        from evaluate_all_chunking_strategies import ChunkingStrategyAnalyzer
+
+        analyzer = ChunkingStrategyAnalyzer()
+
+        console.print("🔄 Starting comprehensive analysis...")
+        with console.status("[bold green]Analyzing chunking strategies..."):
+            analysis = analyzer.analyze_model_capabilities(model_list)
+
+        # Save results
+        import json
+
+        with open(output, "w", encoding="utf-8") as f:
+            json.dump(analysis, f, indent=2, ensure_ascii=False, default=str)
+        console.print(f"✅ Analysis results saved to: {output}")
+
+        # Generate report
+        analyzer.generate_report(analysis, str(report))
+        console.print(f"✅ Human-readable report saved to: {report}")
+
+        # Display summary
+        console.print()
+        console.print("📊 [bold]Analysis Summary[/bold]")
+        console.print()
+
+        for model_name, model_data in analysis["models"].items():
+            supported = model_data.get("supported_strategies", [])
+            failed = model_data.get("failed_strategies", [])
+
+            console.print(f"🤖 [yellow]{model_name}[/yellow]")
+            console.print(
+                f"   ✅ Supported: {', '.join(supported) if supported else 'None'}"
+            )
+            console.print(f"   ❌ Failed: {', '.join(failed) if failed else 'None'}")
+
+            if model_data.get("best_strategy"):
+                best = model_data["best_strategy"]
+                console.print(
+                    f"   🏆 Best: {best['strategy']} (context: {best['metrics']['context_preservation_score']:.3f})"
+                )
+            console.print()
+
+        # Display recommendations
+        console.print("💡 [bold]Key Recommendations[/bold]")
+        for use_case, recs in analysis.get("recommendations", {}).items():
+            console.print(f"🎯 [cyan]{use_case.replace('_', ' ').title()}[/cyan]:")
+            for rec in recs[:2]:  # Show first 2 recommendations
+                console.print(f"   • {rec}")
+            console.print()
+
+    except Exception as e:
+        console.print(f"❌ Analysis failed: {e}")
+        if verbose:
+            console.print_exception()
+        sys.exit(1)
+
+
+@chunking.command()
+@click.option(
+    "--model",
+    type=str,
+    default=None,
+    help="Specific model to show capabilities for (default: current configured model)",
+)
+def capabilities(model: str) -> None:
+    """
+    Show chunking strategy capabilities for embedding models.
+
+    Displays which chunking strategies are supported by each model,
+    their performance characteristics, and recommended use cases.
+
+    Examples:
+
+        # Show capabilities for current model
+        docling-japanese-books chunking capabilities
+
+        # Show capabilities for specific model
+        docling-japanese-books chunking capabilities --model "BAAI/bge-m3"
+    """
+    console = Console()
+
+    # Import the evaluator to get model configs
+    from .embedding_evaluation import MultiStrategyEmbeddingEvaluator
+
+    evaluator = MultiStrategyEmbeddingEvaluator()
+
+    if model is None:
+        model = config.chunking.embedding_model
+        console.print(
+            f"📋 Showing capabilities for current model: [yellow]{model}[/yellow]"
+        )
+    else:
+        console.print(f"📋 Showing capabilities for: [yellow]{model}[/yellow]")
+
+    console.print()
+
+    # Get model configuration
+    model_config = evaluator.model_configs.get(model, {})
+    if not model_config:
+        console.print(f"❌ Model [red]{model}[/red] not found in supported models")
+        console.print("📚 Supported models:")
+        for supported_model in evaluator.model_configs.keys():
+            console.print(f"   • {supported_model}")
+        return
+
+    # Display capabilities
+    console.print(
+        Panel.fit(
+            f"🤖 [bold]{model}[/bold]\n\n"
+            f"📝 Notes: {model_config.get('notes', 'No notes available')}\n"
+            f"🎯 Task: {model_config.get('task', 'None')}\n"
+            f"📏 Optimal Chunk Size: {model_config.get('optimal_chunk_size', 'Unknown')} chars\n"
+            f"🔗 Late Chunking Support: {'✅ Yes' if model_config.get('supports_late_chunking') else '❌ No'}",
+            title="Model Information",
+        )
+    )
+
+    # Show supported strategies
+    supported_strategies = model_config.get("supported_strategies", [])
+    console.print("⚙️  [bold]Supported Chunking Strategies[/bold]")
+    console.print()
+
+    for strategy in supported_strategies:
+        strategy_info = evaluator.strategy_definitions.get(strategy, {})
+        console.print(
+            f"✅ [green]{strategy}[/green] - {strategy_info.get('name', strategy)}"
+        )
+        console.print(
+            f"   {strategy_info.get('description', 'No description available')}"
+        )
+
+        best_for = strategy_info.get("best_for", [])
+        if best_for:
+            console.print(f"   🎯 Best for: {', '.join(best_for)}")
+        console.print()
+
+    # Show recommendations
+    console.print("💡 [bold]Recommendations[/bold]")
+    console.print()
+
+    preferred = model_config.get("preferred_strategy", "traditional")
+    fallbacks = model_config.get("fallback_strategies", [])
+
+    console.print(f"🏆 Preferred Strategy: [green]{preferred}[/green]")
+    if fallbacks:
+        console.print(f"🔄 Fallback Options: {', '.join(fallbacks)}")
+
+    # Usage examples
+    console.print()
+    console.print("🔧 [bold]Usage Examples[/bold]")
+    console.print()
+    console.print("# Use with this model in your code:")
+    console.print(
+        "from docling_japanese_books.enhanced_chunking import create_chunking_strategy"
+    )
+    console.print(f"chunker = create_chunking_strategy('{model}', '{preferred}')")
+    if model_config.get("task"):
+        console.print("# Or with task specification:")
+        console.print(
+            f"chunker = create_chunking_strategy('{model}', '{preferred}', task='{model_config['task']}')"
+        )
+
+
+@chunking.command()
+@click.argument(
+    "strategy",
+    type=click.Choice(["auto", "late", "traditional", "hybrid", "hierarchical"]),
+)
+@click.option(
+    "--model", type=str, help="Set embedding model along with strategy (optional)"
+)
+def set_strategy(strategy: str, model: str) -> None:
+    """
+    Set the default chunking strategy for document processing.
+
+    STRATEGY options:
+    - auto: Automatically select best strategy per model
+    - late: Late chunking (embed full document, then chunk)
+    - traditional: Traditional chunking (chunk first, then embed)
+    - hybrid: Model-adaptive strategy with fallbacks
+    - hierarchical: Multiple chunk sizes for different queries
+
+    Examples:
+
+        # Set to auto-select best strategy per model
+        docling-japanese-books chunking set-strategy auto
+
+        # Force late chunking for all models (will fallback if not supported)
+        docling-japanese-books chunking set-strategy late
+
+        # Set strategy and model together
+        docling-japanese-books chunking set-strategy hybrid --model "jinaai/jina-embeddings-v4"
+    """
+    console = Console()
+
+    console.print(f"⚙️  Setting chunking strategy to: [yellow]{strategy}[/yellow]")
+
+    if model:
+        console.print(f"🤖 Setting embedding model to: [yellow]{model}[/yellow]")
+
+        # Validate model exists
+        from .embedding_evaluation import MultiStrategyEmbeddingEvaluator
+
+        evaluator = MultiStrategyEmbeddingEvaluator()
+
+        if model not in evaluator.model_configs:
+            console.print(
+                f"⚠️  [yellow]Warning:[/yellow] Model [red]{model}[/red] not in supported models list"
+            )
+            console.print("📚 Supported models:")
+            for supported_model in evaluator.model_configs.keys():
+                console.print(f"   • {supported_model}")
+            console.print()
+            console.print(
+                "Proceeding anyway - model may still work with fallback strategies..."
+            )
+
+    # Update configuration (this is a demo - in practice you'd update config files)
+    console.print()
+    console.print("📝 [bold]Configuration Update[/bold]")
+    console.print(
+        f"Current strategy: [bright_black]{config.chunking.chunking_strategy}[/bright_black]"
+    )
+    console.print(
+        f"Current model: [bright_black]{config.chunking.embedding_model}[/bright_black]"
+    )
+    console.print()
+    console.print(f"New strategy: [green]{strategy}[/green]")
+    if model:
+        console.print(f"New model: [green]{model}[/green]")
+
+    console.print()
+    console.print(
+        "⚠️  [yellow]Note:[/yellow] This is a demonstration. To persist changes, update your config.py file:"
+    )
+    console.print()
+    console.print(f"chunking_strategy = '{strategy}'")
+    if model:
+        console.print(f"embedding_model = '{model}'")
 
 
 if __name__ == "__main__":

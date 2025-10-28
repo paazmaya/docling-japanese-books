@@ -26,26 +26,136 @@ class MilvusVectorDB:
         self._setup_milvus_client()
 
     def _setup_embedding_model(self) -> None:
-        """Initialize BGE-M3 embedding model with Late Chunking support."""
-        try:
-            self.logger.info(
-                f"Loading embedding model: {self.config.chunking.embedding_model}"
-            )
+        """
+        Initialize embedding model with adaptive chunking strategy support.
 
+        This method automatically selects the best chunking strategy for the configured
+        embedding model based on its capabilities and performance characteristics.
+
+        Model-Strategy Selection Logic:
+        ==============================
+        - BGE-M3: Prefers late chunking for better context preservation
+        - Jina v4: Uses hybrid chunking with task-specific optimization
+        - Snowflake Arctic: Uses traditional chunking optimized for speed
+        - Others: Falls back to traditional chunking
+
+        Fallback Mechanisms:
+        ===================
+        If the preferred strategy fails, the system automatically falls back to
+        increasingly basic strategies: hybrid → traditional → error
+        """
+        try:
+            model_name = self.config.chunking.embedding_model
+            self.logger.info(f"Loading embedding model: {model_name}")
+
+            # Import the enhanced chunking system
+            from .enhanced_chunking import create_chunking_strategy
+
+            # Determine optimal strategy based on model capabilities
+            if "bge-m3" in model_name.lower():
+                preferred_strategy = "late"
+                fallback_strategies = ["hybrid", "traditional"]
+                self.logger.info(
+                    "Using late chunking for BGE-M3 (optimal for Japanese context)"
+                )
+
+            elif "jina-embeddings-v4" in model_name.lower():
+                preferred_strategy = "hybrid"
+                fallback_strategies = ["traditional"]
+                self.logger.info(
+                    "Using hybrid chunking for Jina v4 (quantization-aware)"
+                )
+
+            elif "snowflake" in model_name.lower():
+                preferred_strategy = "traditional"
+                fallback_strategies = ["hybrid"]
+                self.logger.info(
+                    "Using traditional chunking for Snowflake Arctic (speed-optimized)"
+                )
+
+            else:
+                preferred_strategy = "traditional"
+                fallback_strategies = ["hybrid"]
+                self.logger.info(
+                    f"Using traditional chunking for {model_name} (safe default)"
+                )
+
+            # Try to create the preferred strategy
+            chunking_strategy = None
+            strategy_used = None
+
+            strategies_to_try = [preferred_strategy] + fallback_strategies
+
+            for strategy in strategies_to_try:
+                try:
+                    # Determine task for task-aware models
+                    task = None
+                    if "jina-embeddings-v4" in model_name.lower():
+                        task = "retrieval"  # Optimize for retrieval use case
+
+                    chunking_strategy = create_chunking_strategy(
+                        model_name, strategy, task
+                    )
+                    strategy_used = strategy
+
+                    if strategy != preferred_strategy:
+                        self.logger.warning(
+                            f"Preferred strategy '{preferred_strategy}' failed, "
+                            f"using fallback '{strategy}'"
+                        )
+                    else:
+                        self.logger.info(
+                            f"Successfully initialized {strategy} chunking strategy"
+                        )
+
+                    break
+
+                except Exception as e:
+                    self.logger.warning(
+                        f"Strategy '{strategy}' failed for {model_name}: {e}"
+                    )
+                    continue
+
+            if chunking_strategy is None:
+                raise RuntimeError(f"All chunking strategies failed for {model_name}")
+
+            # Store the chunking strategy and model info
+            self.chunking_strategy = chunking_strategy
+            self.strategy_used = strategy_used
+
+            # Keep legacy late_chunking for backward compatibility
             self.late_chunking = LateChunkingProcessor()
+
+            # Load sentence transformer for additional operations if needed
             cache_folder = (
                 Path(self.config.docling.artifacts_path).resolve() / "embeddings"
             )
 
-            self.embedding_model = SentenceTransformer(
-                self.config.chunking.embedding_model, cache_folder=str(cache_folder)
-            )
+            try:
+                # For task-aware models, pass the task parameter
+                if "jina-embeddings-v4" in model_name.lower():
+                    self.embedding_model = SentenceTransformer(
+                        model_name,
+                        cache_folder=str(cache_folder),
+                        trust_remote_code=True,
+                        model_kwargs={"default_task": "retrieval"},
+                    )
+                else:
+                    self.embedding_model = SentenceTransformer(
+                        model_name, cache_folder=str(cache_folder)
+                    )
 
-            self.logger.info(
-                "BGE-M3 embedding model loaded successfully with Late Chunking support"
-            )
+                self.logger.info(
+                    f"Embedding model loaded successfully with {strategy_used} chunking strategy"
+                )
+
+            except Exception as e:
+                self.logger.warning(f"Failed to load SentenceTransformer directly: {e}")
+                self.embedding_model = None
+                self.logger.info("Will use chunking strategy for all operations")
+
         except Exception as e:
-            self.logger.error(f"Failed to load embedding model: {e}")
+            self.logger.error(f"Failed to setup embedding model: {e}")
             raise
 
     def _setup_milvus_client(self) -> None:
