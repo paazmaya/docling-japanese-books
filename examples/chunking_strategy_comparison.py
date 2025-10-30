@@ -8,11 +8,18 @@ in the docling-japanese-books project, including comparisons and recommendations
 import logging
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
 from docling_japanese_books.config import config
 from docling_japanese_books.enhanced_chunking import create_chunking_strategy
+
+# Type definitions for better type safety
+ModelConfig = dict[str, str | None]
+EvaluationResult = dict[str, Any]
+ModelResults = dict[str, EvaluationResult]
+ComparisonResults = dict[str, ModelResults]
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -59,8 +66,8 @@ def load_sample_document() -> str:
 
 
 def evaluate_chunking_strategy(
-    document: str, model_name: str, strategy: str, task: str = None
-) -> dict:
+    document: str, model_name: str, strategy: str, task: str | None = None
+) -> dict[str, Any]:  # type: ignore[misc]
     """Evaluate a specific chunking strategy."""
     logger.info(f"Evaluating {strategy} chunking with {model_name}")
 
@@ -71,24 +78,24 @@ def evaluate_chunking_strategy(
         chunker = create_chunking_strategy(model_name, strategy, task)
 
         # Process document
-        chunks, embeddings = chunker.process_document(document, max_chunk_length=400)
+        chunks, embeddings = chunker.process_document(document, max_chunk_length=400)  # type: ignore[misc]
 
         processing_time = time.time() - start_time
 
         # Calculate metrics
         num_chunks = len(chunks)
         avg_chunk_length = sum(len(chunk) for chunk in chunks) / num_chunks
-        embedding_dim = len(embeddings[0]) if embeddings else 0
+        embedding_dim = len(embeddings[0]) if embeddings else 0  # type: ignore[misc]
 
         # Context preservation score (similarity between consecutive chunks)
         context_scores = []
-        for i in range(len(embeddings) - 1):
-            similarity = np.dot(embeddings[i], embeddings[i + 1]) / (
-                np.linalg.norm(embeddings[i]) * np.linalg.norm(embeddings[i + 1])
+        for i in range(len(embeddings) - 1):  # type: ignore[misc]
+            similarity = np.dot(embeddings[i], embeddings[i + 1]) / (  # type: ignore[misc]
+                np.linalg.norm(embeddings[i]) * np.linalg.norm(embeddings[i + 1])  # type: ignore[misc]
             )
-            context_scores.append(similarity)
+            context_scores.append(similarity)  # type: ignore[misc]
 
-        avg_context_preservation = np.mean(context_scores) if context_scores else 0.0
+        avg_context_preservation = np.mean(context_scores) if context_scores else 0.0  # type: ignore[misc]
 
         return {
             "model_name": model_name,
@@ -114,12 +121,13 @@ def evaluate_chunking_strategy(
         }
 
 
-def compare_all_strategies() -> dict:
+def compare_all_strategies() -> ComparisonResults:
     """Compare all chunking strategies across all models."""
+    logger.info("Starting comprehensive strategy comparison...")
     document = load_sample_document()
 
-    # Model configurations
-    model_configs = [
+    # Model configurations with proper typing
+    model_configs: list[ModelConfig] = [
         {"name": "BAAI/bge-m3", "task": None},
         {"name": "Snowflake/snowflake-arctic-embed-l-v2.0", "task": None},
         {"name": "jinaai/jina-embeddings-v4", "task": "retrieval"},
@@ -129,12 +137,12 @@ def compare_all_strategies() -> dict:
     # Chunking strategies to test
     strategies = ["late", "hybrid"]
 
-    results = {}
+    results: ComparisonResults = {}
 
     for model_config in model_configs:
-        model_name = model_config["name"]
-        task = model_config["task"]
-        model_results = {}
+        model_name: str = model_config["name"]  # type: ignore[assignment]
+        task: str | None = model_config["task"]  # type: ignore[assignment]
+        model_results: ModelResults = {}
 
         for strategy in strategies:
             result = evaluate_chunking_strategy(document, model_name, strategy, task)
@@ -145,46 +153,67 @@ def compare_all_strategies() -> dict:
     return results
 
 
-def print_comparison_report(results: dict):
+def print_comparison_report(results: ComparisonResults) -> None:
     """Print a formatted comparison report."""
+    _print_report_header()
+
+    for model_name, model_results in results.items():
+        _print_model_section(model_name, model_results)
+
+
+def _print_report_header():
+    """Print the report header."""
     print("\n" + "=" * 80)
     print("CHUNKING STRATEGY COMPARISON REPORT")
     print("=" * 80)
 
-    for model_name, model_results in results.items():
-        print(f"\n📊 MODEL: {model_name}")
-        print("-" * 60)
 
-        for strategy, result in model_results.items():
-            if result["success"]:
-                print(f"\n✅ Strategy: {strategy.upper()}")
-                if result.get("task"):
-                    print(f"   Task: {result['task']}")
-                print(f"   Processing Time: {result['processing_time']:.2f}s")
-                print(f"   Chunks Generated: {result['num_chunks']}")
-                print(f"   Avg Chunk Length: {result['avg_chunk_length']:.0f} chars")
-                print(f"   Embedding Dimension: {result['embedding_dim']}")
-                print(f"   Context Preservation: {result['context_preservation']:.3f}")
+def _print_model_section(model_name: str, model_results: dict[str, Any]):  # type: ignore[misc]
+    """Print results for a specific model."""
+    print(f"\n📊 MODEL: {model_name}")
+    print("-" * 60)
 
-                # Show first chunk as example
-                if result.get("chunks_preview"):
-                    preview = (
-                        result["chunks_preview"][0][:100] + "..."
-                        if len(result["chunks_preview"][0]) > 100
-                        else result["chunks_preview"][0]
-                    )
-                    print(f"   First Chunk Preview: {preview}")
-            else:
-                print(f"\n❌ Strategy: {strategy.upper()}")
-                print(f"   Error: {result['error']}")
+    for strategy, result in model_results.items():
+        if result["success"]:
+            _print_successful_strategy(strategy, result)
+        else:
+            _print_failed_strategy(strategy, result)
 
 
-def generate_recommendations(results: dict) -> list[str]:
+def _print_successful_strategy(strategy: str, result: dict[str, Any]):  # type: ignore[misc]
+    """Print results for a successful strategy."""
+    print(f"\n✅ Strategy: {strategy.upper()}")
+    if result.get("task"):
+        print(f"   Task: {result['task']}")
+    print(f"   Processing Time: {result['processing_time']:.2f}s")
+    print(f"   Chunks Generated: {result['num_chunks']}")
+    print(f"   Avg Chunk Length: {result['avg_chunk_length']:.0f} chars")
+    print(f"   Embedding Dimension: {result['embedding_dim']}")
+    print(f"   Context Preservation: {result['context_preservation']:.3f}")
+
+    _print_chunk_preview(result)
+
+
+def _print_failed_strategy(strategy: str, result: dict[str, Any]):  # type: ignore[misc]
+    """Print results for a failed strategy."""
+    print(f"\n❌ Strategy: {strategy.upper()}")
+    print(f"   Error: {result['error']}")
+
+
+def _print_chunk_preview(result: dict[str, Any]):  # type: ignore[misc]
+    """Print a preview of the first chunk."""
+    if result.get("chunks_preview"):
+        first_chunk = result["chunks_preview"][0]
+        preview = first_chunk[:100] + "..." if len(first_chunk) > 100 else first_chunk
+        print(f"   First Chunk Preview: {preview}")
+
+
+def generate_recommendations(results: ComparisonResults) -> list[str]:
     """Generate recommendations based on evaluation results."""
-    recommendations = []
+    recommendations: list[str] = []
 
     # Find best performing combinations
-    successful_results = []
+    successful_results: list[EvaluationResult] = []
     for _model_name, model_results in results.items():
         for _strategy, result in model_results.items():
             if result["success"]:
@@ -197,40 +226,46 @@ def generate_recommendations(results: dict) -> list[str]:
         return recommendations
 
     # Sort by context preservation score
-    successful_results.sort(key=lambda x: x["context_preservation"], reverse=True)
+    successful_results.sort(key=lambda x: x["context_preservation"], reverse=True)  # type: ignore[arg-type]
 
-    best_result = successful_results[0]
+    best_result: EvaluationResult = successful_results[0]
     recommendations.append(
         f"🏆 Best Context Preservation: {best_result['model_name']} with {best_result['strategy']} chunking "
         f"(score: {best_result['context_preservation']:.3f})"
     )
 
     # Sort by processing speed
-    successful_results.sort(key=lambda x: x["processing_time"])
-    fastest_result = successful_results[0]
+    successful_results.sort(key=lambda x: x["processing_time"])  # type: ignore[arg-type]
+    fastest_result: EvaluationResult = successful_results[0]
     recommendations.append(
         f"⚡ Fastest Processing: {fastest_result['model_name']} with {fastest_result['strategy']} chunking "
         f"({fastest_result['processing_time']:.2f}s)"
     )
 
     # Model-specific recommendations
-    jina_results = [r for r in successful_results if "jina" in r["model_name"].lower()]
+    jina_results: list[EvaluationResult] = [
+        r for r in successful_results if "jina" in str(r["model_name"]).lower()
+    ]  # type: ignore[operator]
     if jina_results:
         recommendations.append(
             "🎯 Jina v4 with quantization-aware training shows good balance of performance and efficiency"
         )
 
-    bge_results = [r for r in successful_results if "bge" in r["model_name"].lower()]
+    bge_results: list[EvaluationResult] = [
+        r for r in successful_results if "bge" in str(r["model_name"]).lower()
+    ]  # type: ignore[operator]
     if bge_results:
         recommendations.append(
             "🌏 BGE-M3 is specifically optimized for multilingual content including Japanese"
         )
 
     # Late chunking recommendations
-    late_chunking_results = [r for r in successful_results if r["strategy"] == "late"]
+    late_chunking_results: list[EvaluationResult] = [
+        r for r in successful_results if r["strategy"] == "late"
+    ]
     if late_chunking_results:
         avg_context = np.mean(
-            [r["context_preservation"] for r in late_chunking_results]
+            [r["context_preservation"] for r in late_chunking_results]  # type: ignore[misc]
         )
         recommendations.append(
             f"🔗 Late chunking shows average context preservation of {avg_context:.3f} across models"

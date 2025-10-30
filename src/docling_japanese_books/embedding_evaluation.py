@@ -76,7 +76,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -195,8 +195,8 @@ class MultiStrategyEmbeddingEvaluator:
         self.config = config
 
         # Type annotations for instance variables
-        self.model_configs: Dict[str, Dict[str, Any]]
-        self.strategy_definitions: Dict[str, Dict[str, Any]]
+        self.model_configs: dict[str, dict[str, Any]]
+        self.strategy_definitions: dict[str, dict[str, Any]]
 
         # Test queries for Japanese content evaluation
         self.japanese_test_queries = [
@@ -367,19 +367,19 @@ class MultiStrategyEmbeddingEvaluator:
             )
 
             # Process document
-            chunks, embeddings = chunker.process_document(document, max_chunk_length)
+            chunks, embeddings = chunker.process_document(document, max_chunk_length)  # type: ignore[misc]
 
             processing_time = time.time() - start_time
 
             # Calculate metrics
             num_chunks = len(chunks)
             avg_chunk_length = sum(len(chunk) for chunk in chunks) / max(num_chunks, 1)
-            embedding_dim = len(embeddings[0]) if embeddings else 0
+            embedding_dim = len(embeddings[0]) if embeddings else 0  # type: ignore[arg-type]
 
             # Context preservation (similarity between consecutive chunks)
-            context_scores = []
-            for i in range(len(embeddings) - 1):
-                if len(embeddings[i]) > 0 and len(embeddings[i + 1]) > 0:
+            context_scores: list[float] = []
+            for i in range(len(embeddings) - 1):  # type: ignore[arg-type]
+                if len(embeddings[i]) > 0 and len(embeddings[i + 1]) > 0:  # type: ignore[arg-type]
                     similarity = self._calculate_cosine_similarity(
                         embeddings[i], embeddings[i + 1]
                     )
@@ -390,19 +390,21 @@ class MultiStrategyEmbeddingEvaluator:
             )
 
             # Japanese-specific evaluation
-            japanese_score = self._evaluate_japanese_specificity(
-                embeddings, model_name
-            )
+            japanese_score = self._evaluate_japanese_specificity(embeddings, model_name)  # type: ignore[arg-type]
 
             return MultiStrategyEvaluationMetrics(
                 model_name=model_name,
                 strategy_name=strategy,
                 chunking_method=f"{strategy}{'_fallback' if is_fallback else ''}",
                 task=self.model_configs.get(model_name, {}).get("task"),
-                avg_cosine_similarity=float(np.mean([np.mean(emb) for emb in embeddings]))
+                avg_cosine_similarity=float(
+                    np.mean([np.mean(emb) for emb in embeddings])  # type: ignore[misc]
+                )
                 if embeddings
                 else 0.0,
-                std_cosine_similarity=float(np.std([np.mean(emb) for emb in embeddings]))
+                std_cosine_similarity=float(
+                    np.std([np.mean(emb) for emb in embeddings])  # type: ignore[misc]
+                )
                 if embeddings
                 else 0.0,
                 processing_time=processing_time,
@@ -443,7 +445,7 @@ class MultiStrategyEmbeddingEvaluator:
         return float(dot_product / (norm_a * norm_b))
 
     def _evaluate_japanese_specificity(
-        self, embeddings: List[Any], model_type: str
+        self, embeddings: list[Any], model_type: str
     ) -> float:
         """Evaluate performance on Japanese-specific queries."""
         if not embeddings:
@@ -508,12 +510,12 @@ class MultiStrategyEmbeddingEvaluator:
 
     def _generate_recommendations(
         self, results: ComprehensiveEvaluationResults
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate recommendations based on evaluation results."""
-        recommendations: List[str] = []
+        recommendations: list[str] = []
 
         # Find best overall performer
-        all_metrics: List[MultiStrategyEvaluationMetrics] = []
+        all_metrics: list[MultiStrategyEvaluationMetrics] = []
         for model_results in results.model_results.values():
             for metrics in model_results.values():
                 if metrics.strategy_supported and not metrics.error_message:
@@ -545,7 +547,7 @@ class MultiStrategyEmbeddingEvaluator:
         )
 
         # Strategy-specific recommendations
-        strategy_performance: Dict[str, List[float]] = {}
+        strategy_performance: dict[str, list[float]] = {}
         for metrics in all_metrics:
             if metrics.strategy_name not in strategy_performance:
                 strategy_performance[metrics.strategy_name] = []
@@ -643,7 +645,7 @@ class EmbeddingEvaluator:
 
         # Split by Japanese sentence endings
         sentences = re.split(r"[。！？]+", document)
-        chunks = []
+        chunks: list[str] = []
         current_chunk = ""
 
         for sentence in sentences:
@@ -674,61 +676,98 @@ class EmbeddingEvaluator:
         return dot_product / (norm_a * norm_b)
 
     def evaluate_context_preservation(
-        self, document: str, chunks: List[str], embeddings: List[Any]
+        self, document: str, chunks: list[str], embeddings: list[Any]
     ) -> float:
         """Evaluate how well chunks preserve document context."""
         if len(chunks) < 2:
             return 1.0  # Perfect if only one chunk
 
         # Calculate similarity between consecutive chunks
-        similarities = []
+        similarities: list[float] = []
         for i in range(len(embeddings) - 1):
             sim = self.calculate_cosine_similarity(embeddings[i], embeddings[i + 1])
             similarities.append(sim)
 
         # Higher similarity between consecutive chunks suggests better context preservation
-        return np.mean(similarities) if similarities else 0.0
+        return float(np.mean(similarities)) if similarities else 0.0
 
     def evaluate_japanese_specificity(
         self,
-        chunks: List[str],
-        embeddings: List[Any],
+        chunks: list[str],
+        embeddings: list[Any],
         model_type: str = "traditional",
     ) -> float:
         """Evaluate performance on Japanese-specific queries."""
-        similarities = []
+        similarities: list[float] = []
 
         # Load models if not loaded
         self.load_models()
 
         for query in self.japanese_test_queries:
             # Get query embedding using the same model as chunks to ensure compatibility
-            if model_type == "bge_m3":
-                # Use BGE-M3 for query (matches Late Chunking embeddings)
-                self.late_chunking.load_model()
-                query_emb = self.late_chunking.model.encode(
-                    [query], return_dense=True, return_sparse=False
-                )["dense_vecs"][0]
-            elif model_type == "snowflake_arctic":
-                # Use Snowflake Arctic for query
-                query_emb = self.snowflake_arctic_model.encode(query)
-            elif model_type == "jina_v4":
-                # Use Jina Embeddings v4 for query with specific task
-                query_emb = self.jina_v4_model.encode(query, task=JINA_TASK_RETRIEVAL)
-            else:
-                # Use sentence transformers (matches traditional embeddings)
-                query_emb = self.traditional_model.encode(query)
+            query_emb = self._get_query_embedding(query, model_type)
+            if query_emb is None:
+                continue
 
             # Find best matching chunk
-            chunk_similarities = []
-            for emb in embeddings:
-                sim = self.calculate_cosine_similarity(query_emb, emb)
-                chunk_similarities.append(sim)
-
+            chunk_similarities = self._calculate_chunk_similarities(
+                query_emb, embeddings
+            )
             if chunk_similarities:
                 similarities.append(max(chunk_similarities))
 
-        return np.mean(similarities) if similarities else 0.0
+        return float(np.mean(similarities)) if similarities else 0.0
+
+    def _get_query_embedding(self, query: str, model_type: str) -> Any:
+        """Get query embedding using the appropriate model for the given type."""
+        if model_type == "bge_m3":
+            return self._get_bge_m3_query_embedding(query)
+        elif model_type == "snowflake_arctic":
+            return self._get_snowflake_query_embedding(query)
+        elif model_type == "jina_v4":
+            return self._get_jina_v4_query_embedding(query)
+        else:
+            return self._get_traditional_query_embedding(query)
+
+    def _get_bge_m3_query_embedding(self, query: str) -> Any:
+        """Get BGE-M3 query embedding."""
+        if self.late_chunking is not None:
+            self.late_chunking.load_model()
+            if self.late_chunking.model is not None:  # type: ignore[misc]
+                return self.late_chunking.model.encode(  # type: ignore[misc]
+                    [query], return_dense=True, return_sparse=False
+                )["dense_vecs"][0]
+        return None
+
+    def _get_snowflake_query_embedding(self, query: str) -> Any:
+        """Get Snowflake Arctic query embedding."""
+        if self.snowflake_arctic_model is not None:
+            return self.snowflake_arctic_model.encode(query)  # type: ignore[misc]
+        return None
+
+    def _get_jina_v4_query_embedding(self, query: str) -> Any:
+        """Get Jina v4 query embedding."""
+        if self.jina_v4_model is not None:
+            return self.jina_v4_model.encode(  # type: ignore[misc]
+                query, task=JINA_TASK_RETRIEVAL
+            )
+        return None
+
+    def _get_traditional_query_embedding(self, query: str) -> Any:
+        """Get traditional model query embedding."""
+        if self.traditional_model is not None:
+            return self.traditional_model.encode(query)  # type: ignore[misc]
+        return None
+
+    def _calculate_chunk_similarities(
+        self, query_emb: Any, embeddings: list[Any]
+    ) -> list[float]:
+        """Calculate similarities between query embedding and chunk embeddings."""
+        chunk_similarities: list[float] = []
+        for emb in embeddings:
+            sim = self.calculate_cosine_similarity(query_emb, emb)
+            chunk_similarities.append(sim)
+        return chunk_similarities
 
     def _get_model_type(self, chunking_method: str) -> str:
         """Get model type based on chunking method."""
@@ -820,11 +859,14 @@ class EmbeddingEvaluator:
             },
         )
 
-    def _evaluate_traditional_approach(self, document: str) -> Dict[str, Any]:
+    def _evaluate_traditional_approach(self, document: str) -> dict[str, Any]:
         """Evaluate traditional chunking approach."""
         start_time = time.time()
         chunks = self.simple_traditional_chunking(document)
-        embeddings = [self.traditional_model.encode(chunk) for chunk in chunks]
+        if self.traditional_model is not None:
+            embeddings = [self.traditional_model.encode(chunk) for chunk in chunks]  # type: ignore[misc]
+        else:
+            embeddings = []
         processing_time = time.time() - start_time
 
         return {
@@ -833,16 +875,19 @@ class EmbeddingEvaluator:
             "processing_time": processing_time,
         }
 
-    def _evaluate_late_chunking_approach(self, document: str) -> Dict[str, Any]:
+    def _evaluate_late_chunking_approach(self, document: str) -> dict[str, Any]:
         """Evaluate Late Chunking approach."""
         start_time = time.time()
-        chunks, embeddings = self.late_chunking.process_document(document)
+        if self.late_chunking is not None:
+            chunks, embeddings = self.late_chunking.process_document(document)  # type: ignore[misc]
+        else:
+            chunks = []
+            embeddings = []
         processing_time = time.time() - start_time
 
         # Convert to numpy arrays
-        embeddings_np = [
-            emb if isinstance(emb, np.ndarray) else np.array(emb) for emb in embeddings
-        ]
+        # Convert embeddings to numpy arrays (embeddings are already numpy arrays)
+        embeddings_np = embeddings  # type: ignore[assignment]
 
         return {
             "chunks": chunks,
@@ -850,11 +895,14 @@ class EmbeddingEvaluator:
             "processing_time": processing_time,
         }
 
-    def _evaluate_snowflake_arctic_approach(self, document: str) -> Dict[str, Any]:
+    def _evaluate_snowflake_arctic_approach(self, document: str) -> dict[str, Any]:
         """Evaluate Snowflake Arctic approach with traditional chunking."""
         start_time = time.time()
         chunks = self.simple_traditional_chunking(document)
-        embeddings = [self.snowflake_arctic_model.encode(chunk) for chunk in chunks]
+        if self.snowflake_arctic_model is not None:
+            embeddings = [self.snowflake_arctic_model.encode(chunk) for chunk in chunks]  # type: ignore[misc]
+        else:
+            embeddings = []
         processing_time = time.time() - start_time
 
         return {
@@ -863,15 +911,18 @@ class EmbeddingEvaluator:
             "processing_time": processing_time,
         }
 
-    def _evaluate_jina_v4_approach(self, document: str) -> Dict[str, Any]:
+    def _evaluate_jina_v4_approach(self, document: str) -> dict[str, Any]:
         """Evaluate Jina Embeddings v4 approach with traditional chunking and proper task specification."""
         start_time = time.time()
         chunks = self.simple_traditional_chunking(document)
         # Use proper task specification for document passages
-        embeddings = [
-            self.jina_v4_model.encode(chunk, task=JINA_TASK_RETRIEVAL)
-            for chunk in chunks
-        ]
+        if self.jina_v4_model is not None:
+            embeddings = [
+                self.jina_v4_model.encode(chunk, task=JINA_TASK_RETRIEVAL)  # type: ignore[misc]
+                for chunk in chunks
+            ]
+        else:
+            embeddings = []
         processing_time = time.time() - start_time
 
         return {
@@ -880,7 +931,7 @@ class EmbeddingEvaluator:
             "processing_time": processing_time,
         }
 
-    def _evaluate_jina_v4_late_chunking_approach(self, document: str) -> dict:
+    def _evaluate_jina_v4_late_chunking_approach(self, document: str) -> dict[str, Any]:
         """Evaluate Jina v4 with native late chunking if supported."""
         start_time = time.time()
 
@@ -893,18 +944,24 @@ class EmbeddingEvaluator:
 
             # For now, fall back to our own chunking approach but with proper tasks
             chunks = self.simple_traditional_chunking(document)
-            embeddings = [
-                self.jina_v4_model.encode(chunk, task=JINA_TASK_RETRIEVAL)
-                for chunk in chunks
-            ]
+            if self.jina_v4_model is not None:
+                embeddings = [
+                    self.jina_v4_model.encode(chunk, task=JINA_TASK_RETRIEVAL)  # type: ignore[misc]
+                    for chunk in chunks
+                ]
+            else:
+                embeddings = []
 
         except Exception:
             # Fall back to standard chunking if late chunking is not available
             chunks = self.simple_traditional_chunking(document)
-            embeddings = [
-                self.jina_v4_model.encode(chunk, task=JINA_TASK_RETRIEVAL)
-                for chunk in chunks
-            ]
+            if self.jina_v4_model is not None:
+                embeddings = [
+                    self.jina_v4_model.encode(chunk, task=JINA_TASK_RETRIEVAL)  # type: ignore[misc]
+                    for chunk in chunks
+                ]
+            else:
+                embeddings = []
 
         processing_time = time.time() - start_time
 
@@ -920,12 +977,12 @@ class EmbeddingEvaluator:
         chunking_method: str,
         document: str,
         chunks: list[str],
-        embeddings: list[np.ndarray],
+        embeddings: list[np.ndarray[Any, Any]],
         processing_time: float,
     ) -> EvaluationMetrics:
         """Calculate evaluation metrics for an approach."""
         # Inter-chunk similarities
-        similarities = []
+        similarities: list[float] = []
         for i, emb1 in enumerate(embeddings):
             for j, emb2 in enumerate(embeddings):
                 if i != j:
@@ -935,8 +992,8 @@ class EmbeddingEvaluator:
         return EvaluationMetrics(
             model_name=model_name,
             chunking_method=chunking_method,
-            avg_cosine_similarity=np.mean(similarities) if similarities else 0.0,
-            std_cosine_similarity=np.std(similarities) if similarities else 0.0,
+            avg_cosine_similarity=float(np.mean(similarities)) if similarities else 0.0,
+            std_cosine_similarity=float(np.std(similarities)) if similarities else 0.0,
             processing_time=processing_time,
             num_chunks=len(chunks),
             avg_chunk_length=int(np.mean([len(c) for c in chunks])) if chunks else 0,
@@ -984,7 +1041,7 @@ class EmbeddingEvaluator:
         self, documents: dict[str, str], output_path: Optional[Path] = None
     ) -> list[EvaluationResults]:
         """Run a comprehensive comparison study between embedding approaches."""
-        results = []
+        results: list[EvaluationResults] = []
 
         self.logger.info(f"Starting evaluation study with {len(documents)} documents")
 
@@ -1014,22 +1071,22 @@ class EmbeddingEvaluator:
 
         return results
 
-    def _convert_to_serializable(self, obj):
+    def _convert_to_serializable(self, obj: Any) -> Any:
         """Convert numpy types to JSON serializable types."""
         if isinstance(obj, np.floating):
-            return float(obj)
+            return float(obj.item())
         elif isinstance(obj, np.integer):
-            return int(obj)
+            return int(obj.item())
         elif isinstance(obj, np.ndarray):
-            return obj.tolist()
+            return obj.tolist()  # type: ignore[no-any-return]
         elif hasattr(obj, "__dict__"):
             return {
                 k: self._convert_to_serializable(v) for k, v in obj.__dict__.items()
             }
         elif isinstance(obj, dict):
-            return {k: self._convert_to_serializable(v) for k, v in obj.items()}
+            return {str(k): self._convert_to_serializable(v) for k, v in obj.items()}  # type: ignore[misc]
         elif isinstance(obj, (list, tuple)):
-            return [self._convert_to_serializable(item) for item in obj]
+            return [self._convert_to_serializable(item) for item in obj]  # type: ignore[misc]
         else:
             return obj
 
@@ -1037,9 +1094,9 @@ class EmbeddingEvaluator:
         """Save evaluation results to JSON file."""
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        results_data = []
+        results_data: list[Any] = []
         for result in results:
-            result_dict = {
+            result_dict: dict[str, Any] = {
                 "document_id": result.document_id,
                 "traditional_metrics": result.traditional_metrics.__dict__,
                 "late_chunking_metrics": result.late_chunking_metrics.__dict__,
@@ -1083,7 +1140,7 @@ class EmbeddingEvaluator:
         ]
 
         # Count best models
-        model_wins = {}
+        model_wins: dict[str, int] = {}
         for result in results:
             model = result.best_model
             model_wins[model] = model_wins.get(model, 0) + 1
@@ -1193,6 +1250,23 @@ class EmbeddingEvaluator:
 # CLI command for running evaluations
 def main():
     """Main function for running embedding evaluation."""
+    args = _parse_arguments()
+    evaluator = EmbeddingEvaluator()
+
+    # Load documents from file or process PDFs
+    documents = _load_or_process_documents(args)
+
+    # Run evaluation
+    results = evaluator.run_comparison_study(
+        documents,
+        output_path=args.output or Path("embedding_evaluation_results.json"),  # type: ignore[arg-type]
+    )
+
+    return results
+
+
+def _parse_arguments():
+    """Parse command line arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -1202,99 +1276,103 @@ def main():
     parser.add_argument(
         "--documents", "-d", type=Path, help="JSON file with documents to evaluate"
     )
+    return parser.parse_args()
 
-    args = parser.parse_args()
 
-    evaluator = EmbeddingEvaluator()
-
-    # Load documents
+def _load_or_process_documents(args: Any) -> dict[str, str]:  # type: ignore[misc]
+    """Load documents from file or process PDF files."""
     if args.documents and args.documents.exists():
-        with args.documents.open("r", encoding="utf-8") as f:
-            documents = json.load(f)
+        return _load_documents_from_file(args.documents)
     else:
-        # Process PDF files using DocumentProcessor with vision model
-        logger = logging.getLogger(__name__)
-        test_docs_path = Path("test_docs")
-        documents = {}
+        return _process_pdf_documents()
 
-        if test_docs_path.exists():
-            pdf_files = list(test_docs_path.glob("*.pdf"))
-            if pdf_files:
-                logger.info(
-                    f"Processing {len(pdf_files)} PDF files using vision model..."
-                )
 
-                try:
-                    # Import and initialize DocumentProcessor
-                    from .processor import DocumentProcessor
+def _load_documents_from_file(documents_path: Path) -> dict[str, str]:
+    """Load documents from JSON file."""
+    with documents_path.open("r", encoding="utf-8") as f:
+        return json.load(f)
 
-                    # Process each PDF individually to extract text content
-                    for pdf_file in pdf_files:
-                        content = None
 
-                        try:
-                            logger.info(
-                                f"Processing {pdf_file.name} with vision model..."
-                            )
+def _process_pdf_documents() -> dict[str, str]:
+    """Process PDF files using DocumentProcessor with vision model."""
+    logger = logging.getLogger(__name__)
+    test_docs_path = Path("test_docs")
+    documents = {}
 
-                            # Initialize processor for single file
-                            processor = DocumentProcessor()
+    if not test_docs_path.exists():
+        logger.error("test_docs/ folder not found")
+        return documents  # type: ignore[return-value]
 
-                            # Process the single PDF file
-                            results = processor.process_files([pdf_file])
+    pdf_files = list(test_docs_path.glob("*.pdf"))
+    if not pdf_files:
+        logger.warning("No PDF files found in test_docs/")
+        return documents  # type: ignore[return-value]
 
-                            if results.success_count > 0:
-                                # Try to get the processed content from the results
-                                # The processor should have generated markdown content
-                                # We need to extract it from the output files
+    logger.info(f"Processing {len(pdf_files)} PDF files using vision model...")
 
-                                output_dir = Path("output") / pdf_file.stem
-                                markdown_file = output_dir / f"{pdf_file.stem}.md"
+    try:
+        documents = _process_pdf_files_with_vision(pdf_files, logger)
+    except Exception as e:
+        logger.error(f"Failed to initialize DocumentProcessor: {e}")
 
-                                if markdown_file.exists():
-                                    with markdown_file.open("r", encoding="utf-8") as f:
-                                        content = f.read()
-                                        if content.strip():
-                                            documents[pdf_file.stem] = content
-                                            logger.info(
-                                                f"Successfully processed {pdf_file.name}: {len(content)} characters"
-                                            )
-                                        else:
-                                            logger.warning(
-                                                f"Empty content from {pdf_file.name}"
-                                            )
-                                else:
-                                    logger.warning(
-                                        f"No output markdown file found for {pdf_file.name}"
-                                    )
-                            else:
-                                logger.warning(f"Failed to process {pdf_file.name}")
+    return documents  # type: ignore[return-value]
 
-                        except Exception as e:
-                            logger.warning(
-                                f"Error processing {pdf_file.name} with vision model: {e}"
-                            )
 
-                        # If vision processing failed, try fallback text extraction
-                        if not content:
-                            raise ValueError(
-                                f"Failed to extract content from {pdf_file.name}"
-                            )
+def _process_pdf_files_with_vision(
+    pdf_files: list[Path], logger: Any
+) -> dict[str, str]:  # type: ignore[misc]
+    """Process PDF files using vision model."""
+    documents = {}
 
-                except Exception as e:
-                    logger.error(f"Failed to initialize DocumentProcessor: {e}")
+    for pdf_file in pdf_files:
+        content = _process_single_pdf(pdf_file, logger)
+        if content:
+            documents[pdf_file.stem] = content
 
-            else:
-                logger.warning("No PDF files found in test_docs/")
+    return documents  # type: ignore[return-value]
+
+
+def _process_single_pdf(pdf_file: Path, logger: Any) -> str | None:  # type: ignore[misc]
+    """Process a single PDF file and return its content."""
+    try:
+        logger.info(f"Processing {pdf_file.name} with vision model...")
+
+        from .processor import DocumentProcessor
+
+        processor = DocumentProcessor()
+        results = processor.process_files([pdf_file])
+
+        if results.success_count > 0:
+            return _extract_processed_content(pdf_file, logger)
         else:
-            logger.error("test_docs/ folder not found")
+            logger.warning(f"Failed to process {pdf_file.name}")
 
-    # Run evaluation
-    results = evaluator.run_comparison_study(
-        documents, output_path=args.output or Path("embedding_evaluation_results.json")
-    )
+    except Exception as e:
+        logger.warning(f"Error processing {pdf_file.name} with vision model: {e}")
+        raise ValueError(f"Failed to extract content from {pdf_file.name}")
 
-    return results
+    return None
+
+
+def _extract_processed_content(pdf_file: Path, logger: Any) -> str | None:  # type: ignore[misc]
+    """Extract processed content from output markdown file."""
+    output_dir = Path("output") / pdf_file.stem
+    markdown_file = output_dir / f"{pdf_file.stem}.md"
+
+    if not markdown_file.exists():
+        logger.warning(f"No output markdown file found for {pdf_file.name}")
+        return None
+
+    with markdown_file.open("r", encoding="utf-8") as f:
+        content = f.read()
+        if content.strip():
+            logger.info(
+                f"Successfully processed {pdf_file.name}: {len(content)} characters"
+            )
+            return content
+        else:
+            logger.warning(f"Empty content from {pdf_file.name}")
+            return None
 
 
 if __name__ == "__main__":

@@ -11,6 +11,11 @@ from pydantic import Field
 
 from .config import ChunkingConfig as BaseChunkingConfig
 
+# Model name constants
+BGE_M3_MODEL = "BAAI/bge-m3"
+SNOWFLAKE_ARCTIC_MODEL = "Snowflake/snowflake-arctic-embed-l-v2.0"
+JINA_V4_MODEL = "jinaai/jina-embeddings-v4"
+
 
 class EnhancedChunkingConfig(BaseChunkingConfig):
     """Extended chunking configuration with support for multiple strategies."""
@@ -18,7 +23,7 @@ class EnhancedChunkingConfig(BaseChunkingConfig):
     # Available models and their optimal configurations
     model_configurations: dict[str, dict[str, Any]] = Field(
         default={
-            "BAAI/bge-m3": {
+            BGE_M3_MODEL: {
                 "supports_late_chunking": True,
                 "optimal_chunk_size": 400,
                 "embedding_dim": 1024,
@@ -26,7 +31,7 @@ class EnhancedChunkingConfig(BaseChunkingConfig):
                 "task": None,
                 "notes": "Multilingual model optimized for Japanese content",
             },
-            "Snowflake/snowflake-arctic-embed-l-v2.0": {
+            SNOWFLAKE_ARCTIC_MODEL: {
                 "supports_late_chunking": False,  # Can be implemented with custom approach
                 "optimal_chunk_size": 512,
                 "embedding_dim": 1024,
@@ -34,7 +39,7 @@ class EnhancedChunkingConfig(BaseChunkingConfig):
                 "task": None,
                 "notes": "High-quality embeddings, good for English and some multilingual content",
             },
-            "jinaai/jina-embeddings-v4": {
+            JINA_V4_MODEL: {
                 "supports_late_chunking": False,  # Can be implemented with custom approach
                 "optimal_chunk_size": 512,
                 "embedding_dim": 1024,
@@ -205,7 +210,7 @@ class EnhancedChunkingConfig(BaseChunkingConfig):
 
 
 # Usage example configuration
-CHUNKING_RECOMMENDATIONS = {
+CHUNKING_RECOMMENDATIONS: dict[str, dict[str, Any]] = {
     "development": {
         "models": ["sentence-transformers/all-MiniLM-L6-v2"],
         "strategy": "traditional",
@@ -213,13 +218,13 @@ CHUNKING_RECOMMENDATIONS = {
         "rationale": "Fast iteration, lightweight",
     },
     "production_balanced": {
-        "models": ["BAAI/bge-m3", "jinaai/jina-embeddings-v4"],
+        "models": [BGE_M3_MODEL, JINA_V4_MODEL],
         "strategy": "hybrid",
         "chunk_size": 400,
         "rationale": "Good balance of quality and performance",
     },
     "production_quality": {
-        "models": ["BAAI/bge-m3"],
+        "models": [BGE_M3_MODEL],
         "strategy": "late",
         "chunk_size": 400,
         "rationale": "Maximum quality for Japanese content",
@@ -232,9 +237,9 @@ CHUNKING_RECOMMENDATIONS = {
     },
     "research": {
         "models": [
-            "BAAI/bge-m3",
-            "jinaai/jina-embeddings-v4",
-            "Snowflake/snowflake-arctic-embed-l-v2.0",
+            BGE_M3_MODEL,
+            JINA_V4_MODEL,
+            SNOWFLAKE_ARCTIC_MODEL,
         ],
         "strategy": "hierarchical",
         "chunk_size": [200, 400, 800],

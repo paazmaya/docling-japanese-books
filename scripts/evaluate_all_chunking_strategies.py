@@ -131,7 +131,23 @@ class ChunkingStrategyAnalyzer:
 
         logger.info(f"Analyzing capabilities for {len(models)} models...")
 
-        analysis = {
+        analysis = self._initialize_analysis()
+
+        for model_name in models:
+            logger.info(f"\\n{'=' * 60}")
+            logger.info(f"ANALYZING MODEL: {model_name}")
+            logger.info(f"{'=' * 60}")
+
+            model_analysis = self._analyze_single_model(model_name)
+            analysis["models"][model_name] = model_analysis
+
+        # Generate cross-model analysis
+        self._finalize_analysis(analysis)
+        return analysis
+
+    def _initialize_analysis(self) -> dict[str, Any]:
+        """Initialize analysis structure."""
+        return {
             "models": {},
             "strategy_compatibility": {},
             "performance_summary": {},
@@ -140,152 +156,180 @@ class ChunkingStrategyAnalyzer:
             "timestamp": time.time(),
         }
 
-        for model_name in models:
-            logger.info(f"\\n{'=' * 60}")
-            logger.info(f"ANALYZING MODEL: {model_name}")
-            logger.info(f"{'=' * 60}")
+    def _analyze_single_model(self, model_name: str) -> dict[str, Any]:
+        """Analyze capabilities of a single model."""
+        model_analysis = {
+            "model_name": model_name,
+            "supported_strategies": [],
+            "failed_strategies": [],
+            "strategy_results": {},
+            "best_strategy": None,
+            "alternatives": [],
+            "limitations": [],
+            "recommendations": [],
+        }
 
-            model_analysis = {
-                "model_name": model_name,
-                "supported_strategies": [],
-                "failed_strategies": [],
-                "strategy_results": {},
-                "best_strategy": None,
-                "alternatives": [],
-                "limitations": [],
-                "recommendations": [],
+        # Test each strategy with this model
+        for strategy in self.available_strategies:
+            logger.info(f"Testing {strategy} chunking...")
+            result = self._test_strategy_with_model(model_name, strategy)
+            self._process_strategy_result(strategy, result, model_analysis)
+
+        # Determine best strategy and finalize model analysis
+        self._finalize_model_analysis(model_name, model_analysis)
+        return model_analysis
+
+    def _test_strategy_with_model(
+        self, model_name: str, strategy: str
+    ) -> dict[str, Any]:
+        """Test a specific strategy with a model."""
+        try:
+            # Test if we can create the strategy
+            chunker, is_fallback, fallback_reason = (
+                self.evaluator.create_chunking_strategy(model_name, strategy)
+            )
+
+            # Evaluate performance
+            start_time = time.time()
+            chunks, embeddings = chunker.process_document(self.sample_document, 400)  # type: ignore[misc]
+            processing_time = time.time() - start_time
+
+            # Calculate metrics
+            metrics = self._calculate_strategy_metrics(chunks, embeddings)  # type: ignore[arg-type]
+
+            return {
+                "status": "success",
+                "is_fallback": is_fallback,
+                "fallback_reason": fallback_reason,
+                "processing_time": processing_time,
+                "chunks_sample": chunks[:2] if chunks else [],
+                "chunker": chunker,
+                **metrics,
             }
 
-            # Test each strategy with this model
-            for strategy in self.available_strategies:
-                logger.info(f"Testing {strategy} chunking...")
+        except Exception as e:
+            logger.error(f"  ❌ {strategy}: Failed - {str(e)}")
+            return {
+                "status": "failed",
+                "error": str(e),
+                "limitations": [f"Cannot use {strategy} with {model_name}"],
+            }
 
-                try:
-                    # Test if we can create the strategy
-                    chunker, is_fallback, fallback_reason = (
-                        self.evaluator.create_chunking_strategy(model_name, strategy)
-                    )
+    def _calculate_strategy_metrics(
+        self, chunks: list[str], embeddings: list[Any]
+    ) -> dict[str, Any]:
+        """Calculate metrics for a strategy result."""
+        num_chunks = len(chunks)
+        avg_chunk_length = sum(len(chunk) for chunk in chunks) / max(num_chunks, 1)
+        embedding_dim = len(embeddings[0]) if embeddings else 0  # type: ignore[arg-type]
 
-                    # Evaluate performance
-                    start_time = time.time()
-                    chunks, embeddings = chunker.process_document(
-                        self.sample_document, 400
-                    )
-                    processing_time = time.time() - start_time
+        # Context preservation calculation
+        context_score = self._calculate_context_preservation(embeddings)  # type: ignore[arg-type]
 
-                    # Calculate basic metrics
-                    num_chunks = len(chunks)
-                    avg_chunk_length = sum(len(chunk) for chunk in chunks) / max(
-                        num_chunks, 1
-                    )
-                    embedding_dim = len(embeddings[0]) if embeddings else 0
+        return {
+            "num_chunks": num_chunks,
+            "avg_chunk_length": int(avg_chunk_length),
+            "embedding_dimension": embedding_dim,
+            "context_preservation_score": float(context_score),
+        }
 
-                    # Context preservation (simplified)
-                    context_score = 0.0
-                    if len(embeddings) > 1:
-                        import numpy as np
+    def _calculate_context_preservation(self, embeddings: list[Any]) -> float:
+        """Calculate context preservation score from embeddings."""
+        if len(embeddings) <= 1:  # type: ignore[arg-type]
+            return 0.0
 
-                        similarities = []
-                        for i in range(len(embeddings) - 1):
-                            if len(embeddings[i]) > 0 and len(embeddings[i + 1]) > 0:
-                                sim = np.dot(embeddings[i], embeddings[i + 1]) / (
-                                    np.linalg.norm(embeddings[i])
-                                    * np.linalg.norm(embeddings[i + 1])
-                                )
-                                similarities.append(sim)
-                        context_score = np.mean(similarities) if similarities else 0.0
+        import numpy as np
 
-                    result = {
-                        "status": "success",
-                        "is_fallback": is_fallback,
-                        "fallback_reason": fallback_reason,
-                        "processing_time": processing_time,
-                        "num_chunks": num_chunks,
-                        "avg_chunk_length": int(avg_chunk_length),
-                        "embedding_dimension": embedding_dim,
-                        "context_preservation_score": float(context_score),
-                        "chunks_sample": chunks[:2]
-                        if chunks
-                        else [],  # First 2 chunks for inspection
-                    }
-
-                    if is_fallback:
-                        model_analysis["alternatives"].append(
-                            {
-                                "requested": strategy,
-                                "actual": chunker.strategy_used
-                                if hasattr(chunker, "strategy_used")
-                                else "unknown",
-                                "reason": fallback_reason,
-                            }
-                        )
-                        logger.warning(
-                            f"  ⚠️  {strategy}: Used fallback - {fallback_reason}"
-                        )
-                    else:
-                        model_analysis["supported_strategies"].append(strategy)
-                        logger.info(
-                            f"  ✅ {strategy}: Success ({processing_time:.2f}s, {num_chunks} chunks)"
-                        )
-
-                    model_analysis["strategy_results"][strategy] = result
-
-                except Exception as e:
-                    logger.error(f"  ❌ {strategy}: Failed - {str(e)}")
-                    model_analysis["failed_strategies"].append(strategy)
-                    model_analysis["strategy_results"][strategy] = {
-                        "status": "failed",
-                        "error": str(e),
-                        "limitations": [f"Cannot use {strategy} with {model_name}"],
-                    }
-
-            # Determine best strategy for this model
-            successful_results = [
-                (strategy, result)
-                for strategy, result in model_analysis["strategy_results"].items()
-                if result.get("status") == "success"
-                and not result.get("is_fallback", False)
-            ]
-
-            if successful_results:
-                # Sort by context preservation score, then by speed
-                best_strategy, best_result = max(
-                    successful_results,
-                    key=lambda x: (
-                        x[1].get("context_preservation_score", 0),
-                        -x[1].get("processing_time", 999),
-                    ),
+        similarities = []
+        for i in range(len(embeddings) - 1):  # type: ignore[arg-type]
+            if len(embeddings[i]) > 0 and len(embeddings[i + 1]) > 0:  # type: ignore[arg-type]
+                sim = np.dot(embeddings[i], embeddings[i + 1]) / (  # type: ignore[misc]
+                    np.linalg.norm(embeddings[i]) * np.linalg.norm(embeddings[i + 1])  # type: ignore[misc]
                 )
-                model_analysis["best_strategy"] = {
-                    "strategy": best_strategy,
-                    "metrics": best_result,
-                }
+                similarities.append(sim)
+        return np.mean(similarities) if similarities else 0.0  # type: ignore[arg-type]
 
-                logger.info(f"  🏆 Best strategy: {best_strategy}")
+    def _process_strategy_result(
+        self, strategy: str, result: dict[str, Any], model_analysis: dict[str, Any]
+    ) -> None:
+        """Process the result of testing a strategy with a model."""
+        if result["status"] == "success":
+            if result.get("is_fallback", False):
+                self._handle_fallback_result(strategy, result, model_analysis)
+            else:
+                model_analysis["supported_strategies"].append(strategy)
+                logger.info(
+                    f"  ✅ {strategy}: Success ({result['processing_time']:.2f}s, "
+                    f"{result['num_chunks']} chunks)"
+                )
+        else:
+            model_analysis["failed_strategies"].append(strategy)
 
-            # Generate model-specific recommendations
-            model_analysis["recommendations"] = self._generate_model_recommendations(
-                model_name, model_analysis
+        # Clean up result for storage
+        if "chunker" in result:
+            del result["chunker"]  # Remove chunker object to keep storage minimal
+        model_analysis["strategy_results"][strategy] = result
+
+    def _handle_fallback_result(
+        self, strategy: str, result: dict[str, Any], model_analysis: dict[str, Any]
+    ) -> None:
+        """Handle fallback strategy results."""
+        chunker = result.get("chunker")
+        model_analysis["alternatives"].append(
+            {
+                "requested": strategy,
+                "actual": chunker.strategy_used
+                if hasattr(chunker, "strategy_used")
+                else "unknown",
+                "reason": result["fallback_reason"],
+            }
+        )
+        logger.warning(f"  ⚠️  {strategy}: Used fallback - {result['fallback_reason']}")
+
+    def _finalize_model_analysis(
+        self, model_name: str, model_analysis: dict[str, Any]
+    ) -> None:
+        """Finalize analysis for a single model."""
+        # Determine best strategy
+        successful_results = [
+            (strategy, result)
+            for strategy, result in model_analysis["strategy_results"].items()
+            if result.get("status") == "success"
+            and not result.get("is_fallback", False)
+        ]
+
+        if successful_results:
+            best_strategy, best_result = max(
+                successful_results,
+                key=lambda x: (
+                    x[1].get("context_preservation_score", 0),
+                    -x[1].get("processing_time", 999),
+                ),
             )
+            model_analysis["best_strategy"] = {
+                "strategy": best_strategy,
+                "metrics": best_result,
+            }
+            logger.info(f"  🏆 Best strategy: {best_strategy}")
 
-            # Document limitations
-            model_analysis["limitations"] = self._document_model_limitations(
-                model_name, model_analysis
-            )
+        # Generate recommendations and document limitations
+        model_analysis["recommendations"] = self._generate_model_recommendations(
+            model_name, model_analysis
+        )
+        model_analysis["limitations"] = self._document_model_limitations(
+            model_name, model_analysis
+        )
 
-            analysis["models"][model_name] = model_analysis
-
-        # Generate cross-model analysis
+    def _finalize_analysis(self, analysis: dict[str, Any]) -> None:
+        """Finalize cross-model analysis."""
         analysis["strategy_compatibility"] = self._analyze_strategy_compatibility(
             analysis["models"]
         )
-        analysis["performance_summary"] = self._generate_performance_summary(
+        analysis["performance_summary"] = self._create_performance_summary(
             analysis["models"]
         )
         analysis["recommendations"] = self._generate_global_recommendations(analysis)
         analysis["alternatives"] = self._document_alternatives(analysis)
-
-        return analysis
 
     def _generate_model_recommendations(
         self, model_name: str, model_analysis: dict
@@ -418,7 +462,7 @@ class ChunkingStrategyAnalyzer:
 
         return compatibility
 
-    def _generate_performance_summary(self, models: dict) -> dict[str, Any]:
+    def _create_performance_summary(self, models: dict) -> dict[str, Any]:  # type: ignore[type-arg]
         """Generate performance summary across all models."""
         summary = {
             "fastest_combinations": [],
@@ -482,8 +526,9 @@ class ChunkingStrategyAnalyzer:
 
         return summary
 
-    def _generate_global_recommendations(self, analysis: dict) -> dict[str, list[str]]:
+    def _generate_global_recommendations(self, analysis: dict) -> dict[str, list[str]]:  # type: ignore[misc]
         """Generate global recommendations based on use cases."""
+        # Note: analysis parameter available for future use
         return {
             "production_quality": [
                 "Use BGE-M3 with late chunking for best Japanese context preservation",
@@ -544,124 +589,14 @@ class ChunkingStrategyAnalyzer:
 
         return alternatives
 
-    def generate_report(self, analysis: dict, output_path: Optional[str] = None) -> str:
+    def generate_report(self, analysis: dict, output_path: Optional[str] = None) -> str:  # type: ignore[type-arg]
         """Generate comprehensive human-readable report."""
-        report_lines = [
-            "# Comprehensive Chunking Strategy Analysis Report",
-            f"Generated at: {time.strftime('%Y-%m-%d %H:%M:%S')}",
-            "",
-            "## Executive Summary",
-            "",
-            f"Analyzed {len(analysis['models'])} embedding models with {len(self.available_strategies)} chunking strategies.",
-            "This report documents capabilities, limitations, and recommendations for each combination.",
-            "",
-        ]
-
-        # Model-by-model analysis
-        report_lines.append("## Model Analysis")
-        report_lines.append("")
-
-        for model_name, model_data in analysis["models"].items():
-            report_lines.extend(
-                [
-                    f"### {model_name}",
-                    "",
-                    f"**Supported Strategies:** {', '.join(model_data['supported_strategies']) or 'None'}",
-                    f"**Failed Strategies:** {', '.join(model_data['failed_strategies']) or 'None'}",
-                    "",
-                ]
-            )
-
-            if model_data.get("best_strategy"):
-                best = model_data["best_strategy"]
-                report_lines.extend(
-                    [
-                        f"**Best Strategy:** {best['strategy']}",
-                        f"- Processing Time: {best['metrics']['processing_time']:.2f}s",
-                        f"- Chunks Generated: {best['metrics']['num_chunks']}",
-                        f"- Context Score: {best['metrics']['context_preservation_score']:.3f}",
-                        "",
-                    ]
-                )
-
-            # Recommendations
-            if model_data.get("recommendations"):
-                report_lines.append("**Recommendations:**")
-                for rec in model_data["recommendations"]:
-                    report_lines.append(f"- {rec}")
-                report_lines.append("")
-
-            # Limitations
-            if model_data.get("limitations"):
-                report_lines.append("**Limitations:**")
-                for limit in model_data["limitations"]:
-                    report_lines.append(f"- {limit}")
-                report_lines.append("")
-
-        # Strategy compatibility
-        report_lines.extend(
-            [
-                "## Strategy Compatibility Matrix",
-                "",
-                "| Strategy | Compatible Models | Compatibility Rate | Description |",
-                "|----------|------------------|-------------------|-------------|",
-            ]
-        )
-
-        for strategy, compat_data in analysis["strategy_compatibility"].items():
-            compatible = ", ".join(compat_data["fully_compatible"]) or "None"
-            rate = f"{compat_data['compatibility_rate']:.1%}"
-            desc = (
-                compat_data["description"][:50] + "..."
-                if len(compat_data["description"]) > 50
-                else compat_data["description"]
-            )
-            report_lines.append(f"| {strategy} | {compatible} | {rate} | {desc} |")
-
-        report_lines.append("")
-
-        # Performance summary
-        perf = analysis["performance_summary"]
-        report_lines.extend(["## Performance Summary", "", "**Fastest Combinations:**"])
-        for fast in perf["fastest_combinations"]:
-            report_lines.append(f"- {fast}")
-
-        report_lines.extend(["", "**Best Context Preservation:**"])
-        for context in perf["best_context_preservation"]:
-            report_lines.append(f"- {context}")
-
-        # Recommendations by use case
-        report_lines.extend(["", "## Recommendations by Use Case", ""])
-
-        for use_case, recs in analysis["recommendations"].items():
-            report_lines.extend([f"### {use_case.replace('_', ' ').title()}", ""])
-            for rec in recs:
-                report_lines.append(f"- {rec}")
-            report_lines.append("")
-
-        # Alternatives documentation
-        report_lines.extend(
-            [
-                "## Alternative Strategies and Fallbacks",
-                "",
-                "When preferred strategies are not available, the following alternatives are used:",
-                "",
-            ]
-        )
-
-        for model_name, alternatives in analysis["alternatives"].items():
-            if alternatives:
-                report_lines.extend([f"### {model_name}", ""])
-                for alt in alternatives:
-                    report_lines.extend(
-                        [
-                            f"**{alt['scenario']}:**",
-                            f"- Alternative: {alt['alternative']}",
-                            f"- Reason: {alt['reason']}",
-                            f"- Impact: {alt['impact']}",
-                            "",
-                        ]
-                    )
+        report_lines = self._generate_report_header(analysis)
+        report_lines.extend(self._generate_model_analysis_section(analysis))
+        report_lines.extend(self._generate_compatibility_matrix(analysis))
+        report_lines.extend(self._generate_performance_summary(analysis))
+        report_lines.extend(self._generate_recommendations_section(analysis))
+        report_lines.extend(self._generate_alternatives_section(analysis))
 
         report_content = "\\n".join(report_lines)
 
@@ -671,6 +606,154 @@ class ChunkingStrategyAnalyzer:
             logger.info(f"Report saved to: {output_path}")
 
         return report_content
+
+    def _generate_report_header(self, analysis: dict) -> list[str]:  # type: ignore[type-arg]
+        """Generate report header section."""
+        return [
+            "# Comprehensive Chunking Strategy Analysis Report",
+            f"Generated at: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+            "",
+            "## Executive Summary",
+            "",
+            f"Analyzed {len(analysis['models'])} embedding models with {len(self.available_strategies)} chunking strategies.",  # type: ignore[arg-type]
+            "This report documents capabilities, limitations, and recommendations for each combination.",
+            "",
+        ]
+
+    def _generate_model_analysis_section(self, analysis: dict) -> list[str]:  # type: ignore[type-arg]
+        """Generate model-by-model analysis section."""
+        report_lines = ["## Model Analysis", ""]
+
+        for model_name, model_data in analysis["models"].items():  # type: ignore[misc]
+            report_lines.extend(
+                self._generate_single_model_section(model_name, model_data)
+            )  # type: ignore[arg-type]
+
+        return report_lines
+
+    def _generate_single_model_section(
+        self, model_name: str, model_data: dict
+    ) -> list[str]:  # type: ignore[type-arg]
+        """Generate analysis section for a single model."""
+        lines = [
+            f"### {model_name}",
+            "",
+            f"**Supported Strategies:** {', '.join(model_data['supported_strategies']) or 'None'}",  # type: ignore[misc]
+            f"**Failed Strategies:** {', '.join(model_data['failed_strategies']) or 'None'}",  # type: ignore[misc]
+            "",
+        ]
+
+        # Add best strategy information
+        if model_data.get("best_strategy"):  # type: ignore[misc]
+            lines.extend(self._format_best_strategy_info(model_data["best_strategy"]))  # type: ignore[misc]
+
+        # Add recommendations
+        if model_data.get("recommendations"):  # type: ignore[misc]
+            lines.extend(self._format_recommendations(model_data["recommendations"]))  # type: ignore[misc]
+
+        # Add limitations
+        if model_data.get("limitations"):  # type: ignore[misc]
+            lines.extend(self._format_limitations(model_data["limitations"]))  # type: ignore[misc]
+
+        return lines
+
+    def _format_best_strategy_info(self, best_strategy: dict) -> list[str]:  # type: ignore[type-arg]
+        """Format best strategy information."""
+        best = best_strategy
+        return [
+            f"**Best Strategy:** {best['strategy']}",  # type: ignore[misc]
+            f"- Processing Time: {best['metrics']['processing_time']:.2f}s",  # type: ignore[misc]
+            f"- Chunks Generated: {best['metrics']['num_chunks']}",  # type: ignore[misc]
+            f"- Context Score: {best['metrics']['context_preservation_score']:.3f}",  # type: ignore[misc]
+            "",
+        ]
+
+    def _format_recommendations(self, recommendations: list) -> list[str]:  # type: ignore[type-arg]
+        """Format recommendations list."""
+        lines = ["**Recommendations:**"]
+        for rec in recommendations:
+            lines.append(f"- {rec}")
+        lines.append("")
+        return lines
+
+    def _format_limitations(self, limitations: list) -> list[str]:  # type: ignore[type-arg]
+        """Format limitations list."""
+        lines = ["**Limitations:**"]
+        for limit in limitations:
+            lines.append(f"- {limit}")
+        lines.append("")
+        return lines
+
+    def _generate_compatibility_matrix(self, analysis: dict) -> list[str]:  # type: ignore[type-arg]
+        """Generate strategy compatibility matrix."""
+        lines = [
+            "## Strategy Compatibility Matrix",
+            "",
+            "| Strategy | Compatible Models | Compatibility Rate | Description |",
+            "|----------|------------------|-------------------|-------------|",
+        ]
+
+        for strategy, compat_data in analysis["strategy_compatibility"].items():  # type: ignore[misc]
+            compatible = ", ".join(compat_data["fully_compatible"]) or "None"  # type: ignore[misc]
+            rate = f"{compat_data['compatibility_rate']:.1%}"  # type: ignore[misc]
+            desc = compat_data["description"]  # type: ignore[misc]
+            if len(desc) > 50:
+                desc = desc[:50] + "..."
+            lines.append(f"| {strategy} | {compatible} | {rate} | {desc} |")
+
+        lines.append("")
+        return lines
+
+    def _generate_performance_summary(self, analysis: dict) -> list[str]:  # type: ignore[type-arg]
+        """Generate performance summary section."""
+        perf = analysis["performance_summary"]  # type: ignore[misc]
+        lines = ["## Performance Summary", "", "**Fastest Combinations:**"]
+
+        for fast in perf["fastest_combinations"]:  # type: ignore[misc]
+            lines.append(f"- {fast}")
+
+        lines.extend(["", "**Best Context Preservation:**"])
+        for context in perf["best_context_preservation"]:  # type: ignore[misc]
+            lines.append(f"- {context}")
+
+        return lines
+
+    def _generate_recommendations_section(self, analysis: dict) -> list[str]:  # type: ignore[type-arg]
+        """Generate recommendations by use case section."""
+        lines = ["", "## Recommendations by Use Case", ""]
+
+        for use_case, recs in analysis["recommendations"].items():  # type: ignore[misc]
+            lines.extend([f"### {use_case.replace('_', ' ').title()}", ""])
+            for rec in recs:
+                lines.append(f"- {rec}")
+            lines.append("")
+
+        return lines
+
+    def _generate_alternatives_section(self, analysis: dict) -> list[str]:  # type: ignore[type-arg]
+        """Generate alternatives and fallbacks section."""
+        lines = [
+            "## Alternative Strategies and Fallbacks",
+            "",
+            "When preferred strategies are not available, the following alternatives are used:",
+            "",
+        ]
+
+        for model_name, alternatives in analysis["alternatives"].items():  # type: ignore[misc]
+            if alternatives:
+                lines.extend([f"### {model_name}", ""])
+                for alt in alternatives:
+                    lines.extend(
+                        [
+                            f"**{alt['scenario']}:**",  # type: ignore[misc]
+                            f"- Alternative: {alt['alternative']}",  # type: ignore[misc]
+                            f"- Reason: {alt['reason']}",  # type: ignore[misc]
+                            f"- Impact: {alt['impact']}",  # type: ignore[misc]
+                            "",
+                        ]
+                    )
+
+        return lines
 
 
 def main():

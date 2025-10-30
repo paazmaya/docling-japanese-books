@@ -37,7 +37,7 @@ class QuantizationMethod:
     compression_ratio: float  # Storage reduction ratio
     description: str
     implementation_complexity: str  # "Simple", "Moderate", "Complex"
-    supported_databases: list[str] = field(default_factory=list)
+    supported_databases: list[str] = field(default_factory=lambda: [])
 
 
 @dataclass
@@ -49,12 +49,12 @@ class BookCollection:
 
     def __init__(
         self,
-        num_books,
-        pages_per_book,
-        chars_per_page,
-        chunk_size,
-        overlap_ratio,
-        embedding_dimensions,
+        num_books: int,
+        pages_per_book: int,
+        chars_per_page: int,
+        chunk_size: int,
+        overlap_ratio: float,
+        embedding_dimensions: int,
     ):
         self.num_books = num_books
         self.pages_per_book = pages_per_book
@@ -241,7 +241,7 @@ class QuantizationAnalyzer:
 
     def analyze_all_methods(self) -> dict[str, StorageCalculation]:
         """Analyze storage requirements for all quantization methods."""
-        results = {}
+        results: dict[str, StorageCalculation] = {}
         for method_key, method in self.methods.items():
             results[method_key] = self.calculate_storage_for_method(method)
         return results
@@ -315,7 +315,7 @@ class QuantizationAnalyzer:
 
         return analysis
 
-    def generate_recommendations(self, results: dict[str, StorageCalculation]) -> str:
+    def generate_recommendations(self) -> str:
         """Generate recommendations based on use cases."""
 
         recommendations = """
@@ -412,7 +412,7 @@ class QuantizationAnalyzer:
             json.dump(json_results, f, indent=2, ensure_ascii=False)
 
 
-def extract_pdf_stats(pdf_dir: Path):
+def extract_pdf_stats(pdf_dir: Path) -> dict[str, int | float]:
     """
     Extract statistics from all PDF files in the given directory using Docling.
     Returns number of books, average pages per book, average characters per page, chunk size, and embedding dimensions.
@@ -422,15 +422,13 @@ def extract_pdf_stats(pdf_dir: Path):
     late_chunker = LateChunkingProcessor()
     pdf_files = list(pdf_dir.glob("*.pdf"))
     num_books = len(pdf_files)
-    total_pages = 0
-    total_chars = 0
     total_chunks = 0
     chunk_size = 400  # Default, will be updated if needed
     embedding_dimensions = 1024  # BGE-M3 default
     overlap_ratio = 0.1
-    pages_per_book_list = []
-    chars_per_page_list = []
-    chunks_per_book_list = []
+    pages_per_book_list: list[int] = []
+    chars_per_page_list: list[float] = []
+    chunks_per_book_list: list[int] = []
 
     for pdf_file in pdf_files:
         # Use Docling to extract text from PDF
@@ -450,8 +448,6 @@ def extract_pdf_stats(pdf_dir: Path):
             chars = len(text)
             pages_per_book_list.append(pages)
             chars_per_page_list.append(chars / pages if pages else 0)
-            total_pages += pages
-            total_chars += chars
             # Use late chunking to get chunk count
             chunks, _ = late_chunker.simple_sentence_chunker(
                 text, max_chunk_length=chunk_size
@@ -495,12 +491,12 @@ def main():
     pdf_dir = Path("test_docs")
     stats = extract_pdf_stats(pdf_dir)
     collection = BookCollection(
-        num_books=stats["num_books"],
-        pages_per_book=stats["pages_per_book"],
-        chars_per_page=stats["chars_per_page"],
-        chunk_size=stats["chunk_size"],
-        overlap_ratio=stats["overlap_ratio"],
-        embedding_dimensions=stats["embedding_dimensions"],
+        num_books=int(stats["num_books"]),
+        pages_per_book=int(stats["pages_per_book"]),
+        chars_per_page=int(stats["chars_per_page"]),
+        chunk_size=int(stats["chunk_size"]),
+        overlap_ratio=float(stats["overlap_ratio"]),
+        embedding_dimensions=int(stats["embedding_dimensions"]),
     )
 
     analyzer = QuantizationAnalyzer(collection)
@@ -509,7 +505,7 @@ def main():
     # Generate reports
     comparison_table = analyzer.generate_comparison_table(results)
     detailed_analysis = analyzer.generate_detailed_analysis(results)
-    recommendations = analyzer.generate_recommendations(results)
+    recommendations = analyzer.generate_recommendations()
 
     # Combine all sections
     full_report = comparison_table + detailed_analysis + recommendations

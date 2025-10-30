@@ -3,6 +3,7 @@
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import click
 from rich.console import Console
@@ -83,10 +84,10 @@ def discover_and_display_files(
     file_types = {}
     for file_path in files:
         ext = file_path.suffix.lower()
-        file_types[ext] = file_types.get(ext, 0) + 1
+        file_types[ext] = file_types.get(ext, 0) + 1  # type: ignore[misc]
 
     type_summary = ", ".join(
-        [f"{ext}: {count}" for ext, count in sorted(file_types.items())]
+        [f"{ext}: {count}" for ext, count in sorted(file_types.items())]  # type: ignore[misc]
     )
     console.print(f"📋 File types: {type_summary}")
 
@@ -107,7 +108,7 @@ def handle_dry_run(files: list[Path], console: Console) -> None:
     console.print("💡 Run without --dry-run to actually process the files")
 
 
-def display_results(results, files: list[Path], console: Console) -> None:
+def display_results(results: Any, files: list[Path], console: Console) -> None:  # type: ignore[misc]
     """Show processing statistics and error summary."""
     console.print()
     console.print(
@@ -281,7 +282,7 @@ def _check_existing_models(console: Console, downloader: ModelDownloader) -> boo
     return False
 
 
-def _display_download_results(console: Console, results: dict) -> None:
+def _display_download_results(console: Console, results: dict[str, Any]) -> None:  # type: ignore[misc]
     """Show download status for each model with success/failure counts."""
     console.print("\n📊 [bold]Download Results:[/bold]")
     for model_name, result in results.items():
@@ -312,17 +313,17 @@ def _get_download_config_panel() -> str:
     downloader = ModelDownloader()
     model_info = downloader.get_model_info()
 
-    content = []
-    content.append(
+    content: list[str] = []
+    content.append(  # type: ignore[misc]
         f"📁 Models Directory: {Path(config.docling.artifacts_path).resolve()}"
     )
-    content.append("")
-    content.append("🤖 Models to Download:")
-    content.append(f"  • Tokenizer: {model_info['tokenizer']}")
-    content.append(f"  • Embedding: {model_info['embedding']}")
-    content.append(f"  • Vision: {model_info['vision']}")
+    content.append("")  # type: ignore[misc]
+    content.append("🤖 Models to Download:")  # type: ignore[misc]
+    content.append(f"  • Tokenizer: {model_info['tokenizer']}")  # type: ignore[misc]
+    content.append(f"  • Embedding: {model_info['embedding']}")  # type: ignore[misc]
+    content.append(f"  • Vision: {model_info['vision']}")  # type: ignore[misc]
 
-    return "\n".join(content)
+    return "\n".join(content)  # type: ignore[misc]
 
 
 @cli.command()
@@ -341,23 +342,23 @@ def _get_download_config_panel() -> str:
 )
 def search(query_text: str, limit: int, verbose: bool) -> None:
     """Search the vector database for similar content."""
-    from .query import QueryInterface
+    from .query import QueryInterface  # type: ignore[attr-defined]
 
     console = Console()
     log_level = "DEBUG" if verbose else "INFO"
     setup_logging(log_level)
 
     try:
-        query_interface = QueryInterface()
-        results = query_interface.search(query_text, limit=limit)
+        query_interface = QueryInterface()  # type: ignore[misc]
+        results = query_interface.search(query_text, limit=limit)  # type: ignore[misc]
 
         if not results:
             console.print("No results found.")
             return
 
-        console.print(f"\n🔍 Found {len(results)} results for: '{query_text}'\n")
+        console.print(f"\n🔍 Found {len(results)} results for: '{query_text}'\n")  # type: ignore[misc]
 
-        for i, result in enumerate(results, 1):
+        for i, result in enumerate(results, 1):  # type: ignore[misc]
             console.print(
                 f"[bold cyan]{i}.[/bold cyan] [bold]{result['document_name']}[/bold]"
             )
@@ -414,7 +415,7 @@ def evaluate(output: Path, documents: Path, verbose: bool) -> None:
             docs = {}
 
         if docs:
-            console.print(f"🔬 Evaluating {len(docs)} documents...")
+            console.print(f"🔬 Evaluating {len(docs)} documents...")  # type: ignore[misc]
         else:
             console.print("� Running evaluation with test documents...")
         console.print("�📊 Comparing Traditional vs Late Chunking approaches")
@@ -440,7 +441,7 @@ def evaluate(output: Path, documents: Path, verbose: bool) -> None:
 
     except Exception as e:
         console.print(f"❌ Evaluation failed: {e}")
-        sys.exit(1)
+        sys.exit(1)  # type: ignore[possibly-unbound]
 
 
 def _display_current_config(console: Console) -> None:
@@ -649,91 +650,144 @@ def analyze(
     console.print("🔍 [bold blue]Chunking Strategy Analysis[/bold blue]")
     console.print()
 
-    # Parse model list
-    model_list = None
-    if models:
-        model_list = [m.strip() for m in models.split(",")]
-        console.print(f"📋 Testing models: {', '.join(model_list)}")
-    elif quick:
-        model_list = ["BAAI/bge-m3", "sentence-transformers/all-MiniLM-L6-v2"]
-        console.print("⚡ Quick mode: Testing minimal model set")
-    else:
-        console.print("📋 Testing all available models")
-
-    # Parse strategy list
-    if strategies:
-        strategy_list = [s.strip() for s in strategies.split(",")]
-        console.print(f"⚙️  Testing strategies: {', '.join(strategy_list)}")
-    else:
-        console.print("⚙️  Testing all available strategies")
-
-    console.print(f"💾 Results will be saved to: {output}")
-    console.print(f"📄 Report will be saved to: {report}")
-    console.print()
+    # Setup analysis parameters
+    model_list = _parse_model_list(models, quick, console)
+    _parse_strategy_list(strategies, console)
+    _display_output_paths(output, report, console)
 
     try:
-        # Import and run the analysis
-        import sys
-        from pathlib import Path as ImportPath
+        # Run analysis
+        analysis = _run_chunking_analysis(model_list, console)
 
-        # Add scripts directory to path
-        scripts_dir = ImportPath(__file__).parent.parent.parent / "scripts"
-        sys.path.insert(0, str(scripts_dir))
-
-        from evaluate_all_chunking_strategies import ChunkingStrategyAnalyzer
-
-        analyzer = ChunkingStrategyAnalyzer()
-
-        console.print("🔄 Starting comprehensive analysis...")
-        with console.status("[bold green]Analyzing chunking strategies..."):
-            analysis = analyzer.analyze_model_capabilities(model_list)
-
-        # Save results
-        import json
-
-        with open(output, "w", encoding="utf-8") as f:
-            json.dump(analysis, f, indent=2, ensure_ascii=False, default=str)
-        console.print(f"✅ Analysis results saved to: {output}")
-
-        # Generate report
-        analyzer.generate_report(analysis, str(report))
-        console.print(f"✅ Human-readable report saved to: {report}")
-
-        # Display summary
-        console.print()
-        console.print("📊 [bold]Analysis Summary[/bold]")
-        console.print()
-
-        for model_name, model_data in analysis["models"].items():
-            supported = model_data.get("supported_strategies", [])
-            failed = model_data.get("failed_strategies", [])
-
-            console.print(f"🤖 [yellow]{model_name}[/yellow]")
-            console.print(
-                f"   ✅ Supported: {', '.join(supported) if supported else 'None'}"
-            )
-            console.print(f"   ❌ Failed: {', '.join(failed) if failed else 'None'}")
-
-            if model_data.get("best_strategy"):
-                best = model_data["best_strategy"]
-                console.print(
-                    f"   🏆 Best: {best['strategy']} (context: {best['metrics']['context_preservation_score']:.3f})"
-                )
-            console.print()
-
-        # Display recommendations
-        console.print("💡 [bold]Key Recommendations[/bold]")
-        for use_case, recs in analysis.get("recommendations", {}).items():
-            console.print(f"🎯 [cyan]{use_case.replace('_', ' ').title()}[/cyan]:")
-            for rec in recs[:2]:  # Show first 2 recommendations
-                console.print(f"   • {rec}")
-            console.print()
+        # Save and display results
+        _save_analysis_results(analysis, output, report, console)
+        _display_analysis_summary(analysis, console)
 
     except Exception as e:
         console.print(f"❌ Analysis failed: {e}")
         if verbose:
             console.print_exception()
         sys.exit(1)
+
+
+def _parse_model_list(models: str, quick: bool, console: Console) -> list[str] | None:
+    """Parse and display model list configuration."""
+    if models:
+        model_list = [m.strip() for m in models.split(",")]
+        console.print(f"📋 Testing models: {', '.join(model_list)}")
+        return model_list
+    elif quick:
+        model_list = ["BAAI/bge-m3", "sentence-transformers/all-MiniLM-L6-v2"]
+        console.print("⚡ Quick mode: Testing minimal model set")
+        return model_list
+    else:
+        console.print("📋 Testing all available models")
+        return None
+
+
+def _parse_strategy_list(strategies: str, console: Console) -> None:
+    """Parse and display strategy list configuration."""
+    if strategies:
+        strategy_list = [s.strip() for s in strategies.split(",")]
+        console.print(f"⚙️  Testing strategies: {', '.join(strategy_list)}")
+    else:
+        console.print("⚙️  Testing all available strategies")
+
+
+def _display_output_paths(output: Path, report: Path, console: Console) -> None:
+    """Display output file paths."""
+    console.print(f"💾 Results will be saved to: {output}")
+    console.print(f"📄 Report will be saved to: {report}")
+    console.print()
+
+
+def _run_chunking_analysis(
+    model_list: list[str] | None, console: Console
+) -> dict[str, Any]:
+    """Execute the chunking strategy analysis."""
+    import sys
+    from pathlib import Path as ImportPath
+
+    # Add scripts directory to path
+    scripts_dir = ImportPath(__file__).parent.parent.parent / "scripts"
+    sys.path.insert(0, str(scripts_dir))
+
+    from evaluate_all_chunking_strategies import (  # type: ignore[import-untyped]
+        ChunkingStrategyAnalyzer,  # type: ignore[import-untyped]
+    )
+
+    analyzer = ChunkingStrategyAnalyzer()  # type: ignore[misc]
+
+    console.print("🔄 Starting comprehensive analysis...")
+    with console.status("[bold green]Analyzing chunking strategies..."):
+        analysis = analyzer.analyze_model_capabilities(model_list)  # type: ignore[misc]
+
+    return analysis  # type: ignore[return-value]
+
+
+def _save_analysis_results(
+    analysis: dict[str, Any], output: Path, report: Path, console: Console
+) -> None:
+    """Save analysis results to files."""
+    import json
+
+    with open(output, "w", encoding="utf-8") as f:
+        json.dump(analysis, f, indent=2, ensure_ascii=False, default=str)
+    console.print(f"✅ Analysis results saved to: {output}")
+
+    # Import analyzer to generate report
+    import sys
+    from pathlib import Path as ImportPath
+
+    scripts_dir = ImportPath(__file__).parent.parent.parent / "scripts"
+    sys.path.insert(0, str(scripts_dir))
+    from evaluate_all_chunking_strategies import (  # type: ignore[import-untyped]
+        ChunkingStrategyAnalyzer,  # type: ignore[import-untyped]
+    )
+
+    analyzer = ChunkingStrategyAnalyzer()  # type: ignore[misc]
+    analyzer.generate_report(analysis, str(report))  # type: ignore[misc]
+    console.print(f"✅ Human-readable report saved to: {report}")
+
+
+def _display_analysis_summary(analysis: dict[str, Any], console: Console) -> None:
+    """Display analysis summary and recommendations."""
+    console.print()
+    console.print("📊 [bold]Analysis Summary[/bold]")
+    console.print()
+
+    _display_model_results(analysis, console)
+    _display_recommendations(analysis, console)
+
+
+def _display_model_results(analysis: dict[str, Any], console: Console) -> None:
+    """Display per-model analysis results."""
+    for model_name, model_data in analysis["models"].items():
+        supported = model_data.get("supported_strategies", [])
+        failed = model_data.get("failed_strategies", [])
+
+        console.print(f"🤖 [yellow]{model_name}[/yellow]")
+        console.print(
+            f"   ✅ Supported: {', '.join(supported) if supported else 'None'}"
+        )
+        console.print(f"   ❌ Failed: {', '.join(failed) if failed else 'None'}")
+
+        if model_data.get("best_strategy"):
+            best = model_data["best_strategy"]
+            console.print(
+                f"   🏆 Best: {best['strategy']} (context: {best['metrics']['context_preservation_score']:.3f})"
+            )
+        console.print()
+
+
+def _display_recommendations(analysis: dict[str, Any], console: Console) -> None:
+    """Display analysis recommendations."""
+    console.print("💡 [bold]Key Recommendations[/bold]")
+    for use_case, recs in analysis.get("recommendations", {}).items():
+        console.print(f"🎯 [cyan]{use_case.replace('_', ' ').title()}[/cyan]:")
+        for rec in recs[:2]:  # Show first 2 recommendations
+            console.print(f"   • {rec}")
+        console.print()
 
 
 @chunking.command()
@@ -765,7 +819,7 @@ def capabilities(model: str) -> None:
 
     evaluator = MultiStrategyEmbeddingEvaluator()
 
-    if model is None:
+    if model is None:  # type: ignore[misc]
         model = config.chunking.embedding_model
         console.print(
             f"📋 Showing capabilities for current model: [yellow]{model}[/yellow]"
