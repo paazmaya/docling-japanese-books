@@ -2,6 +2,33 @@
 
 This document compares vector database providers for the **docling-japanese-books** project, focusing on storage requirements, costs, and capabilities for Japanese document processing.
 
+## 📊 Provider Positioning Overview
+
+```mermaid
+quadrantChart
+    title Vector Database Provider Positioning
+    x-axis Low Cost --> High Cost
+    y-axis Small Scale --> Large Scale
+    
+    quadrant-1 Enterprise Scale / Premium
+    quadrant-2 Enterprise Scale / Budget
+    quadrant-3 Starter / Budget
+    quadrant-4 Starter / Premium
+    
+    Zilliz Cloud: [0.1, 0.8]
+    Qdrant Cloud: [0.2, 0.6]
+    LanceDB Cloud: [0.3, 0.7]
+    Pinecone: [0.7, 0.9]
+    Weaviate: [0.9, 0.8]
+    Local Milvus: [0.05, 0.4]
+```
+
+**Quadrant Explanation:**
+- **Q1 (Enterprise Scale / Premium)**: High-performance, feature-rich solutions for large deployments
+- **Q2 (Enterprise Scale / Budget)**: Cost-effective solutions that can handle large scale
+- **Q3 (Starter / Budget)**: Affordable options for small to medium projects
+- **Q4 (Starter / Premium)**: High-cost solutions better suited for smaller, specialized use cases
+
 ## 📊 Storage Requirements Analysis
 
 ### Project Configuration
@@ -180,7 +207,52 @@ For 10,000 books (~4GB storage):
 - Scaling costs can vary significantly by configuration
 - Less documentation for complex enterprise scenarios
 
-### 5. Local Milvus Lite (Current Default)
+### 5. LanceDB Cloud
+
+> **Sources**: [LanceDB Pricing](https://lancedb.com/pricing/), [LanceDB Cloud Docs](https://lancedb.com/docs/cloud/)
+
+**Free Tier:**
+
+- ✅ **Credits**: $100 one-time free credits
+- ✅ **Usage-Based**: Pay only for what you use (writes, queries, storage)
+- ✅ **Capacity**: ~5,000-8,000 books with free credits
+- ✅ **Features**: Serverless, multimodal storage, enterprise security
+- ✅ **Migration**: Seamless from LanceDB OSS (just change connection URL)
+
+**Pricing Model (Usage-Based):**
+
+- **Writes**: $6.20 per 1M vectors written
+- **Queries**: $15.26 per 1M queries
+- **Storage**: $2.05 per GB/month
+- **Total Example**: $23.50/month for 1M writes + 1M queries + moderate storage
+
+**Current Pricing (Nov 2025):**
+
+For 10,000 books (~5GB storage, moderate usage):
+
+- **Storage**: $10.25/month (5GB × $2.05)
+- **Writes**: $6.20 (assuming 1M vectors/month)
+- **Queries**: $15.26 (assuming 1M queries/month)
+- **Total estimated**: $31.71/month
+
+**Pros:**
+
+- True serverless with automatic scaling to zero
+- Multimodal storage (vectors, text, images together)
+- Lance columnar format for high performance
+- Enterprise security (SOC2, HIPAA compliance)
+- Open source compatibility (easy migration)
+- Pay-per-use model (cost-effective for variable workloads)
+- Built-in observability and monitoring
+
+**Cons:**
+
+- Newer service (public beta, GA coming soon)
+- Usage-based pricing can be unpredictable for high-volume applications
+- Would require API migration from Milvus
+- Limited documentation compared to established providers
+
+### 6. Local Milvus Lite (Current Default)
 
 **Costs:**
 
@@ -221,6 +293,7 @@ For 10,000 books (~4GB storage):
 
 **Alternatives**:
 
+- **LanceDB Cloud**: $100 free credits (~5,000-8,000 books), serverless scaling
 - **Qdrant Cloud**: 1GB free tier for smaller collections (~2,600 books)
 - **Weaviate**: 14-day sandbox for hybrid search experimentation
 
@@ -230,6 +303,7 @@ For 10,000 books (~4GB storage):
 
 - **Zilliz Cloud**: Better for Milvus compatibility, slightly lower cost
 - **Pinecone**: Better for performance, mature ecosystem, $50-75/month range
+- **LanceDB Cloud**: Good for variable workloads, serverless scaling, $30-50/month range
 - Local Milvus Lite for development and testing
 - Consider data partitioning strategies
 
@@ -239,6 +313,7 @@ For 10,000 books (~4GB storage):
 
 - **Qdrant**: $10-12/month, excellent Rust performance, cost-effective scaling
 - **Zilliz Cloud**: Free tier possible, better for budget-conscious projects
+- **LanceDB Cloud**: $30-35/month, serverless with multimodal capabilities
 - **Pinecone**: $50/month minimum, excellent performance, proven reliability
 - All offer enterprise-grade reliability and support
 
@@ -257,6 +332,7 @@ For 10,000 books (~4GB storage):
 
 - Start with Local Milvus Lite for development
 - Test with Zilliz Cloud free tier
+- Try LanceDB Cloud with $100 free credits for serverless testing
 - Evaluate others based on specific requirements
 
 ## 🚀 Migration Strategy
@@ -283,6 +359,41 @@ uv run docling-japanese-books config-db --mode cloud --test-connection
 - Implement data partitioning if needed
 - Consider hybrid deployment for optimal costs
 
+### Getting Started with LanceDB Cloud
+
+```bash
+# Sign up and get API key
+# Visit: https://accounts.lancedb.com/sign-up
+
+# Install LanceDB SDK
+pip install lancedb
+
+# Connect to LanceDB Cloud
+export LANCEDB_API_KEY="your-api-key"
+export LANCEDB_URI="db://your-project-name"
+```
+
+**Configuration Example:**
+
+```python
+import lancedb
+
+# Connect to LanceDB Cloud
+db = lancedb.connect("db://your-project-name")
+
+# Create table with embeddings
+table = db.create_table("documents", [
+    {"id": 1, "text": "sample", "vector": [0.1, 0.2, ...]}
+])
+
+# Search vectors
+results = table.search([0.1, 0.2, ...]).limit(10).to_list()
+```
+
+**Migration from Local:**
+
+LanceDB offers seamless migration from OSS to Cloud by simply changing the connection URL - no code changes required.
+
 ## 📈 Cost Projections
 
 ### Storage Costs (per 10,000 books ≈ 5GB)
@@ -293,6 +404,7 @@ uv run docling-japanese-books config-db --mode cloud --test-connection
 | ---------------- | --------------- | ----------- | ------------------------------- |
 | **Zilliz Cloud** | $0 (free) → $50 | $0 → $600   | 5GB free tier → Standard        |
 | **Qdrant**       | $0 → $12        | $0 → $144   | 1GB free tier, $10/month base   |
+| **LanceDB**      | $0 → $32        | $0 → $384   | $100 free credits → usage-based |
 | **Pinecone**     | $50-75          | $600-900    | 2GB free, $50/month minimum     |
 | **Weaviate**     | $122+           | $1,467+     | No free tier, $25/month minimum |
 | **Local Milvus** | $20-50          | $240-600    | Hardware/hosting only           |
@@ -303,6 +415,7 @@ uv run docling-japanese-books config-db --mode cloud --test-connection
 | ---------------- | -------- | ---------- | ----------- | ----------- |
 | **Zilliz Cloud** | Low      | High       | Excellent   | None        |
 | **Pinecone**     | Very Low | Very High  | Excellent   | None        |
+| **LanceDB**      | Low      | High       | Excellent   | None        |
 | **Weaviate**     | Low      | High       | Good        | None        |
 | **Qdrant**       | Very Low | Very High  | Good        | None        |
 | **Local Milvus** | Very Low | Medium     | Manual      | High        |
@@ -355,12 +468,13 @@ For the **docling-japanese-books** project processing 80-page Japanese books:
 
 ### Cost-Performance Analysis:
 
-| Provider     | 10K Books Cost | Free Tier     | Best For                  |
-| ------------ | -------------- | ------------- | ------------------------- |
-| Zilliz Cloud | $0-50/month    | 5GB permanent | Budget projects, research |
-| Qdrant       | $0-12/month    | 1GB permanent | Cost-effective production |
-| Pinecone     | $50-75/month   | 2GB permanent | Production reliability    |
-| Weaviate     | $122+/month    | 14-day only   | Advanced hybrid search    |
+| Provider     | 10K Books Cost | Free Tier      | Best For                         |
+| ------------ | -------------- | -------------- | -------------------------------- |
+| Zilliz Cloud | $0-50/month    | 5GB permanent  | Budget projects, research        |
+| Qdrant       | $0-12/month    | 1GB permanent  | Cost-effective production        |
+| LanceDB      | $0-32/month    | $100 credits  | Variable workloads, multimodal   |
+| Pinecone     | $50-75/month   | 2GB permanent  | Production reliability           |
+| Weaviate     | $122+/month    | 14-day only    | Advanced hybrid search           |
 
 The current dual-mode implementation (local + Zilliz Cloud) provides the optimal balance of development flexibility and production scalability, with Pinecone as a competitive alternative and Weaviate for specialized hybrid search needs.
 
@@ -374,12 +488,15 @@ All pricing information was gathered from official sources in October 2025:
 - **Zilliz Free Trials**: [https://docs.zilliz.com/docs/free-trials](https://docs.zilliz.com/docs/free-trials)
 - **Qdrant**: [https://qdrant.tech/pricing/](https://qdrant.tech/pricing/)
 - **Qdrant Calculator**: [https://cloud.qdrant.io/calculator](https://cloud.qdrant.io/calculator)
+- **LanceDB**: [https://lancedb.com/pricing/](https://lancedb.com/pricing/)
 - **Pinecone**: [https://www.pinecone.io/pricing/](https://www.pinecone.io/pricing/)
 - **Weaviate**: [https://weaviate.io/pricing](https://weaviate.io/pricing)
 - **Weaviate Serverless**: [https://weaviate.io/deployment/serverless](https://weaviate.io/deployment/serverless)
 
 ### Documentation Sources:
 
+- **LanceDB Cloud Docs**: [https://lancedb.com/docs/cloud/](https://lancedb.com/docs/cloud/)
+- **LanceDB Documentation**: [https://lancedb.com/docs/](https://lancedb.com/docs/)
 - **Weaviate Cloud Docs**: [https://docs.weaviate.io/cloud](https://docs.weaviate.io/cloud)
 - **Pinecone Documentation**: [https://docs.pinecone.io/](https://docs.pinecone.io/)
 - **Pinecone Billing Guide**: [https://docs.pinecone.io/guides/organizations/manage-billing/understand-billing](https://docs.pinecone.io/guides/organizations/manage-billing/understand-billing)
