@@ -17,6 +17,7 @@ quadrantChart
     
     Zilliz Cloud: [0.1, 0.8]
     Qdrant Cloud: [0.2, 0.6]
+    Chroma Cloud: [0.25, 0.75]
     LanceDB Cloud: [0.3, 0.7]
     Pinecone: [0.7, 0.9]
     Weaviate: [0.9, 0.8]
@@ -207,7 +208,57 @@ For 10,000 books (~4GB storage):
 - Scaling costs can vary significantly by configuration
 - Less documentation for complex enterprise scenarios
 
-### 5. LanceDB Cloud
+### 5. Chroma Cloud
+
+> **Sources**: [Chroma Pricing](https://www.trychroma.com/pricing), [Chroma Documentation](https://docs.trychroma.com/)
+
+**Free Tier (Starter Plan):**
+
+- ✅ **Credits**: $5 free credits + $0/month base
+- ✅ **Usage-Based**: Pay only for what you use after credits
+- ✅ **Capacity**: ~1,000-2,000 books with free credits
+- ✅ **Features**: Vector, full-text, metadata search, Apache 2.0 open source
+- ✅ **Team**: Up to 10 databases, 10 team members
+
+**Pricing Model (Usage-Based):**
+
+- **Writes**: $2.50 per GiB written
+- **Storage**: $0.33 per GiB/month stored
+- **Queries**: $0.0075 per TiB queried + $0.09 per GiB returned
+- **Example**: $79/month for 1M docs written, 6M docs stored, 10M queries
+
+**Paid Tiers:**
+
+- **Team**: $250/month + usage, $100 credits included, up to 100 databases
+- **Enterprise**: Custom pricing, unlimited databases, single tenant clusters
+
+**Current Pricing (Nov 2025):**
+
+For 10,000 books (~5GB storage, moderate usage):
+
+- **Storage**: $1.65/month (5GB × $0.33)
+- **Writes**: ~$12.50 (assuming 5GB written once)
+- **Queries**: ~$8-15/month (moderate query volume)
+- **Total estimated**: $20-30/month
+
+**Pros:**
+
+- Excellent open source foundation (Apache 2.0)
+- Multi-modal search (vector, full-text, metadata, regex)
+- Strong developer ecosystem and integrations
+- Competitive pricing for storage and queries
+- Easy local development with seamless cloud migration
+- Built-in collaboration features and dashboard
+- Strong community support (21k+ GitHub stars)
+
+**Cons:**
+
+- Newer cloud service (less mature than Pinecone/Weaviate)
+- Would require API migration from Milvus
+- Usage-based pricing can be unpredictable for high-volume applications
+- Limited enterprise features compared to established providers
+
+### 6. LanceDB Cloud
 
 > **Sources**: [LanceDB Pricing](https://lancedb.com/pricing/), [LanceDB Cloud Docs](https://lancedb.com/docs/cloud/)
 
@@ -252,7 +303,7 @@ For 10,000 books (~5GB storage, moderate usage):
 - Would require API migration from Milvus
 - Limited documentation compared to established providers
 
-### 6. Local Milvus Lite (Current Default)
+### 7. Local Milvus Lite (Current Default)
 
 **Costs:**
 
@@ -294,6 +345,7 @@ For 10,000 books (~5GB storage, moderate usage):
 **Alternatives**:
 
 - **LanceDB Cloud**: $100 free credits (~5,000-8,000 books), serverless scaling
+- **Chroma Cloud**: $5 free credits (~1,000-2,000 books), excellent open source foundation
 - **Qdrant Cloud**: 1GB free tier for smaller collections (~2,600 books)
 - **Weaviate**: 14-day sandbox for hybrid search experimentation
 
@@ -304,6 +356,7 @@ For 10,000 books (~5GB storage, moderate usage):
 - **Zilliz Cloud**: Better for Milvus compatibility, slightly lower cost
 - **Pinecone**: Better for performance, mature ecosystem, $50-75/month range
 - **LanceDB Cloud**: Good for variable workloads, serverless scaling, $30-50/month range
+- **Chroma Cloud**: Open source foundation, multi-modal search, $20-30/month range
 - Local Milvus Lite for development and testing
 - Consider data partitioning strategies
 
@@ -313,6 +366,7 @@ For 10,000 books (~5GB storage, moderate usage):
 
 - **Qdrant**: $10-12/month, excellent Rust performance, cost-effective scaling
 - **Zilliz Cloud**: Free tier possible, better for budget-conscious projects
+- **Chroma Cloud**: $20-30/month, strong open source foundation, multi-modal search
 - **LanceDB Cloud**: $30-35/month, serverless with multimodal capabilities
 - **Pinecone**: $50/month minimum, excellent performance, proven reliability
 - All offer enterprise-grade reliability and support
@@ -333,6 +387,7 @@ For 10,000 books (~5GB storage, moderate usage):
 - Start with Local Milvus Lite for development
 - Test with Zilliz Cloud free tier
 - Try LanceDB Cloud with $100 free credits for serverless testing
+- Experiment with Chroma Cloud for open source compatibility
 - Evaluate others based on specific requirements
 
 ## 🚀 Migration Strategy
@@ -394,6 +449,55 @@ results = table.search([0.1, 0.2, ...]).limit(10).to_list()
 
 LanceDB offers seamless migration from OSS to Cloud by simply changing the connection URL - no code changes required.
 
+### Getting Started with Chroma Cloud
+
+```bash
+# Sign up for Chroma Cloud
+# Visit: https://www.trychroma.com/signup
+
+# Install Chroma
+pip install chromadb
+
+# Get API key from dashboard
+export CHROMA_API_KEY="your-api-key"
+export CHROMA_URL="https://your-tenant.trychroma.com"
+```
+
+**Configuration Example:**
+
+```python
+import chromadb
+
+# Connect to Chroma Cloud
+client = chromadb.HttpClient(
+    host="your-tenant.trychroma.com",
+    port=443,
+    ssl=True,
+    headers={"Authorization": f"Bearer {api_key}"}
+)
+
+# Create collection
+collection = client.create_collection("documents")
+
+# Add documents with embeddings
+collection.add(
+    documents=["sample text"],
+    embeddings=[[0.1, 0.2, ...]],
+    metadatas=[{"source": "book1.pdf"}],
+    ids=["doc1"]
+)
+
+# Search
+results = collection.query(
+    query_embeddings=[[0.1, 0.2, ...]],
+    n_results=10
+)
+```
+
+**Migration from Local:**
+
+Chroma offers seamless migration from local development to cloud with the same API - just change the client configuration.
+
 ## 📈 Cost Projections
 
 ### Storage Costs (per 10,000 books ≈ 5GB)
@@ -404,6 +508,7 @@ LanceDB offers seamless migration from OSS to Cloud by simply changing the conne
 | ---------------- | --------------- | ----------- | ------------------------------- |
 | **Zilliz Cloud** | $0 (free) → $50 | $0 → $600   | 5GB free tier → Standard        |
 | **Qdrant**       | $0 → $12        | $0 → $144   | 1GB free tier, $10/month base   |
+| **Chroma**       | $0 → $25        | $0 → $300   | $5 free credits → usage-based   |
 | **LanceDB**      | $0 → $32        | $0 → $384   | $100 free credits → usage-based |
 | **Pinecone**     | $50-75          | $600-900    | 2GB free, $50/month minimum     |
 | **Weaviate**     | $122+           | $1,467+     | No free tier, $25/month minimum |
@@ -415,6 +520,7 @@ LanceDB offers seamless migration from OSS to Cloud by simply changing the conne
 | ---------------- | -------- | ---------- | ----------- | ----------- |
 | **Zilliz Cloud** | Low      | High       | Excellent   | None        |
 | **Pinecone**     | Very Low | Very High  | Excellent   | None        |
+| **Chroma**       | Low      | High       | Excellent   | None        |
 | **LanceDB**      | Low      | High       | Excellent   | None        |
 | **Weaviate**     | Low      | High       | Good        | None        |
 | **Qdrant**       | Very Low | Very High  | Good        | None        |
@@ -472,6 +578,7 @@ For the **docling-japanese-books** project processing 80-page Japanese books:
 | ------------ | -------------- | -------------- | -------------------------------- |
 | Zilliz Cloud | $0-50/month    | 5GB permanent  | Budget projects, research        |
 | Qdrant       | $0-12/month    | 1GB permanent  | Cost-effective production        |
+| Chroma       | $0-25/month    | $5 credits     | Open source, multi-modal search  |
 | LanceDB      | $0-32/month    | $100 credits  | Variable workloads, multimodal   |
 | Pinecone     | $50-75/month   | 2GB permanent  | Production reliability           |
 | Weaviate     | $122+/month    | 14-day only    | Advanced hybrid search           |
@@ -488,6 +595,7 @@ All pricing information was gathered from official sources in October 2025:
 - **Zilliz Free Trials**: [https://docs.zilliz.com/docs/free-trials](https://docs.zilliz.com/docs/free-trials)
 - **Qdrant**: [https://qdrant.tech/pricing/](https://qdrant.tech/pricing/)
 - **Qdrant Calculator**: [https://cloud.qdrant.io/calculator](https://cloud.qdrant.io/calculator)
+- **Chroma**: [https://www.trychroma.com/pricing](https://www.trychroma.com/pricing)
 - **LanceDB**: [https://lancedb.com/pricing/](https://lancedb.com/pricing/)
 - **Pinecone**: [https://www.pinecone.io/pricing/](https://www.pinecone.io/pricing/)
 - **Weaviate**: [https://weaviate.io/pricing](https://weaviate.io/pricing)
@@ -495,6 +603,8 @@ All pricing information was gathered from official sources in October 2025:
 
 ### Documentation Sources:
 
+- **Chroma Documentation**: [https://docs.trychroma.com/](https://docs.trychroma.com/)
+- **Chroma Cloud Docs**: [https://docs.trychroma.com/cloud/getting-started](https://docs.trychroma.com/cloud/getting-started)
 - **LanceDB Cloud Docs**: [https://lancedb.com/docs/cloud/](https://lancedb.com/docs/cloud/)
 - **LanceDB Documentation**: [https://lancedb.com/docs/](https://lancedb.com/docs/)
 - **Weaviate Cloud Docs**: [https://docs.weaviate.io/cloud](https://docs.weaviate.io/cloud)
