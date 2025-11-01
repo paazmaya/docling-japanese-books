@@ -106,10 +106,10 @@ flowchart TD
 
 **⚠️ Note**: The local [Docker](https://www.docker.com/) setup downloads approximately **4GB of Docker images** ([Milvus](https://milvus.io/), [etcd](https://etcd.io/), [MinIO](https://min.io/)) on first run.
 
-[Milvus Web UI](http://localhost:9091/webui/)
+Once the following command has started to run, the [Milvus Web UI](http://localhost:9091/webui/) becomes available.
 
 ```sh
-docker compose up -d
+docker-compose up -d
 ```
 
 #### Option 1: Development Installation (Recommended)

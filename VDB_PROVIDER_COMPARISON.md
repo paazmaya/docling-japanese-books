@@ -9,12 +9,12 @@ quadrantChart
     title Vector Database Provider Positioning
     x-axis Low Cost --> High Cost
     y-axis Small Scale --> Large Scale
-    
+
     quadrant-1 Enterprise Scale / Premium
     quadrant-2 Enterprise Scale / Budget
     quadrant-3 Starter / Budget
     quadrant-4 Starter / Premium
-    
+
     Zilliz Cloud: [0.1, 0.8]
     Qdrant Cloud: [0.2, 0.6]
     Chroma Cloud: [0.25, 0.75]
@@ -25,6 +25,7 @@ quadrantChart
 ```
 
 **Quadrant Explanation:**
+
 - **Q1 (Enterprise Scale / Premium)**: High-performance, feature-rich solutions for large deployments
 - **Q2 (Enterprise Scale / Budget)**: Cost-effective solutions that can handle large scale
 - **Q3 (Starter / Budget)**: Affordable options for small to medium projects
@@ -86,6 +87,8 @@ quadrantChart
 - Pricing can scale up quickly for large datasets
 
 ### 2. Pinecone
+
+> **Sources**: [Pinecone Pricing](https://www.pinecone.io/pricing/), [Pinecone Documentation](https://docs.pinecone.io/)
 
 **Free Tier (Starter Plan):**
 
@@ -574,14 +577,14 @@ For the **docling-japanese-books** project processing 80-page Japanese books:
 
 ### Cost-Performance Analysis:
 
-| Provider     | 10K Books Cost | Free Tier      | Best For                         |
-| ------------ | -------------- | -------------- | -------------------------------- |
-| Zilliz Cloud | $0-50/month    | 5GB permanent  | Budget projects, research        |
-| Qdrant       | $0-12/month    | 1GB permanent  | Cost-effective production        |
-| Chroma       | $0-25/month    | $5 credits     | Open source, multi-modal search  |
-| LanceDB      | $0-32/month    | $100 credits  | Variable workloads, multimodal   |
-| Pinecone     | $50-75/month   | 2GB permanent  | Production reliability           |
-| Weaviate     | $122+/month    | 14-day only    | Advanced hybrid search           |
+| Provider     | 10K Books Cost | Free Tier     | Best For                        |
+| ------------ | -------------- | ------------- | ------------------------------- |
+| Zilliz Cloud | $0-50/month    | 5GB permanent | Budget projects, research       |
+| Qdrant       | $0-12/month    | 1GB permanent | Cost-effective production       |
+| Chroma       | $0-25/month    | $5 credits    | Open source, multi-modal search |
+| LanceDB      | $0-32/month    | $100 credits  | Variable workloads, multimodal  |
+| Pinecone     | $50-75/month   | 2GB permanent | Production reliability          |
+| Weaviate     | $122+/month    | 14-day only   | Advanced hybrid search          |
 
 The current dual-mode implementation (local + Zilliz Cloud) provides the optimal balance of development flexibility and production scalability, with Pinecone as a competitive alternative and Weaviate for specialized hybrid search needs.
 
