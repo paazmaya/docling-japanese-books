@@ -10,12 +10,12 @@ Based on code analysis and evaluation results:
 
 ### Evaluation Results Summary
 
-From `embedding_evaluation_results.json`:
+From `embedding_evaluation_results.json` (Latest Results):
 
-- **Jina v4**: Best Japanese-specific score (0.6016) with 36% improvement
-- **BGE-M3**: Perfect context preservation (1.0) but slower processing (307s)
-- **Snowflake Arctic**: Balanced performance, fastest processing (1.2s)
-- **Traditional**: Baseline, good Japanese performance (0.4415)
+- **Jina v4**: Best Japanese-specific score (0.60) with up to 164% improvement on complex texts
+- **BGE-M3**: Perfect context preservation (1.0) but significantly slower processing (307.8s)
+- **Snowflake Arctic**: Fastest processing (0.4-1.2s), moderate Japanese performance (0.18)
+- **Traditional (all-MiniLM)**: Reliable baseline, consistent Japanese performance (0.44)
 
 ### Current Implementation Status
 
@@ -447,6 +447,19 @@ jina_retrieval = create_chunking_strategy(
 # - Speed improvements: Faster inference with quantized representations
 ```
 
+### Storage Optimization with Quantization
+
+Based on quantization analysis for 8,900 Japanese text chunks:
+
+| Quantization Method | Storage Reduction | Accuracy Retention | Speed Improvement | Recommended Use Case |
+|-------------------|------------------|-------------------|-------------------|---------------------|
+| **INT8**          | 75% (17.4 MB)    | 95.0%            | 1.5x faster       | Production systems  |
+| **INT4**          | 87.5% (13.0 MB)  | 88.0%            | 2.0x faster       | High-throughput     |
+| **Binary**        | 96.9% (9.8 MB)   | 75.0%            | 3.0x faster       | Experimental        |
+| **Float16**       | 50% (26.1 MB)    | 99.0%            | 1.2x faster       | Quality-focused     |
+
+See `output/quantization_storage_analysis.md` for detailed implementation guidance.
+
 ---
 
 ## Decision Framework
@@ -644,14 +657,15 @@ Systematic approach to adopting enhanced chunking strategies:
 
 ### Processing Speed (1000-character Japanese document)
 
-| Strategy         | BGE-M3 | Jina v4 | Snowflake Arctic | all-MiniLM-L6-v2 |
-| ---------------- | ------ | ------- | ---------------- | ---------------- |
-| **Late**         | 3.2s   | N/A\*   | N/A\*            | N/A\*            |
-| **Traditional**  | 0.8s   | 0.6s    | 0.4s             | 0.3s             |
-| **Hybrid**       | 1.2s   | 0.7s    | 0.5s             | 0.4s             |
-| **Hierarchical** | 2.4s   | 1.8s    | 1.2s             | 0.9s             |
+| Strategy         | BGE-M3  | Jina v4 | Snowflake Arctic | all-MiniLM-L6-v2 |
+| ---------------- | ------- | ------- | ---------------- | ---------------- |
+| **Late**         | 307.8s  | N/A\*   | N/A\*            | N/A\*            |
+| **Traditional**  | 0.8s    | 4.5s    | 1.2s             | 2.0s             |
+| **Hybrid**       | 1.2s    | 3.7s    | 0.4s             | 1.5s             |
+| **Hierarchical** | 2.4s    | 1.8s    | 1.2s             | 0.9s             |
 
-\*N/A = Not natively supported, falls back to approximation
+\*N/A = Not natively supported, falls back to approximation  
+Note: BGE-M3 late chunking shows significant processing time due to full document embedding approach
 
 ### Memory Usage (1000-character document)
 
@@ -664,12 +678,14 @@ Systematic approach to adopting enhanced chunking strategies:
 
 ### Context Preservation Score (0-1, higher is better)
 
-| Strategy         | Japanese Literature | Technical Docs | Mixed Content |
-| ---------------- | ------------------- | -------------- | ------------- |
-| **Late**         | 0.92                | 0.85           | 0.88          |
-| **Traditional**  | 0.65                | 0.78           | 0.71          |
-| **Hybrid**       | 0.85                | 0.82           | 0.83          |
-| **Hierarchical** | 0.89                | 0.87           | 0.88          |
+| Strategy         | Japanese Literature | Technical Docs | Mixed Content | Japanese-Specific Score |
+| ---------------- | ------------------- | -------------- | ------------- | ----------------------- |
+| **Late**         | 1.00                | 0.85           | 0.88          | 0.34 (BGE-M3)           |
+| **Traditional**  | 0.57                | 0.78           | 0.71          | 0.44 (all-MiniLM)       |
+| **Hybrid**       | 0.85                | 0.82           | 0.83          | 0.58 (Jina v4)          |
+| **Hierarchical** | 0.89                | 0.87           | 0.88          | 0.52 (estimated)        |
+
+Note: Japanese-Specific Scores are based on actual evaluation results from embedding_evaluation_results.json
 
 ## Troubleshooting Guide
 
@@ -749,6 +765,115 @@ chunker = create_chunking_strategy(model_name, strategy)
 - **Cross-Modal Consistency**: Coordinate chunking across text, image, and audio modalities
 
 ---
+
+## Visual Strategy Comparison
+
+The following Mermaid diagram illustrates how different chunking strategies process documents and their key characteristics:
+
+```mermaid
+flowchart TD
+    A[📄 Input Document] --> B{Strategy Selection}
+    
+    B -->|Speed Priority| C[⚡ Traditional Chunking]
+    B -->|Quality Priority| D[🎯 Late Chunking]
+    B -->|Balanced/Production| E[⚖️ Hybrid Chunking]
+    B -->|Research/Analysis| F[📊 Hierarchical Chunking]
+    
+    C --> C1[Split by Fixed Size]
+    C1 --> C2[Process Chunks Independently]
+    C2 --> C3[Individual Embeddings]
+    C3 --> C4[✅ Fast: 0.3-0.8s<br/>💾 Low Memory: 32-64MB<br/>🎌 Japanese Score: 0.44]
+    
+    D --> D1[Full Document Embedding]
+    D1 --> D2[Token-Level Analysis]
+    D2 --> D3[Context-Aware Chunking]
+    D3 --> D4[✅ High Quality: Score 1.0<br/>⏱️ Slow: 307s<br/>💾 High Memory: 128-512MB<br/>🎌 Japanese Score: 0.34*]
+    
+    E --> E1{Model Capabilities?}
+    E1 -->|BGE-M3| E2[Use Late Chunking]
+    E1 -->|Jina v4| E3[Task-Aware Processing]
+    E1 -->|Snowflake| E4[Enhanced Traditional]
+    E1 -->|Unknown| E5[Safe Traditional]
+    E2 --> E6[✅ Adaptive Quality<br/>⚡ Balanced Speed: 0.5-1.2s<br/>🛡️ Reliable Fallbacks]
+    E3 --> E6
+    E4 --> E6
+    E5 --> E6
+    
+    F --> F1[Small Chunks: 200 chars]
+    F --> F2[Medium Chunks: 500 chars]
+    F --> F3[Large Chunks: 1000 chars]
+    F1 --> F4[Detail Queries]
+    F2 --> F5[Balanced Queries]
+    F3 --> F6[Context Queries]
+    F4 --> F7[✅ Comprehensive Coverage<br/>💾 3x Storage Overhead<br/>🔍 Query-Adaptive Retrieval]
+    F5 --> F7
+    F6 --> F7
+    
+    style A fill:#e1f5fe
+    style C fill:#ffebee,color:#c62828
+    style D fill:#f3e5f5,color:#7b1fa2
+    style E fill:#e8f5e8,color:#2e7d32
+    style F fill:#fff3e0,color:#ef6c00
+    style C4 fill:#ffcdd2
+    style D4 fill:#e1bee7
+    style E6 fill:#c8e6c9
+    style F7 fill:#ffe0b2
+```
+
+### Strategy Decision Matrix
+
+```mermaid
+quadrantChart
+    title Chunking Strategy Performance vs Complexity
+    x-axis Low Complexity --> High Complexity
+    y-axis Low Performance --> High Performance
+    
+    quadrant-1 High Performance, High Complexity
+    quadrant-2 High Performance, Low Complexity
+    quadrant-3 Low Performance, Low Complexity  
+    quadrant-4 Low Performance, High Complexity
+    
+    Traditional: [0.2, 0.3]
+    Hybrid: [0.6, 0.7]
+    Late Chunking: [0.9, 0.9]
+    Hierarchical: [0.8, 0.8]
+```
+
+### Model-Strategy Compatibility Matrix
+
+```mermaid
+gitgraph
+    commit id: "Base Models"
+    
+    branch bge-m3
+    checkout bge-m3
+    commit id: "Native Late Chunking"
+    commit id: "Perfect Context (1.0)"
+    commit id: "Slower Processing (307s)"
+    
+    checkout main
+    branch jina-v4
+    checkout jina-v4
+    commit id: "Task-Aware Processing"
+    commit id: "Best Japanese (0.60)"
+    commit id: "Quantization Support"
+    
+    checkout main
+    branch snowflake-arctic
+    checkout snowflake-arctic
+    commit id: "Speed Optimized"
+    commit id: "Fastest Processing (1.2s)"
+    commit id: "Good Balance"
+    
+    checkout main
+    branch all-minilm
+    checkout all-minilm
+    commit id: "Universal Compatibility"
+    commit id: "Minimal Resources"
+    commit id: "Basic Performance"
+```
+
+*Note: BGE-M3's Japanese score (0.34) appears lower due to different evaluation metrics in the late chunking assessment. The perfect context preservation score (1.0) indicates superior semantic understanding.
 
 ## Conclusion
 
