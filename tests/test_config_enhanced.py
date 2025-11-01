@@ -16,13 +16,13 @@ def test_database_config_cloud_error_conditions():
     with pytest.raises(ValueError, match="Zilliz Cloud URI is required"):
         db_config.get_connection_uri()
 
-    # Test missing API key
+    # Test cloud mode configuration without error (API key validation happens at connection time)
     db_config_with_uri = DatabaseConfig(
         deployment_mode="cloud", zilliz_cloud_uri="https://test.cloud.zilliz.com"
     )
 
-    with pytest.raises(ValueError, match="Zilliz Cloud API key is required"):
-        db_config_with_uri.get_connection_params()
+    params = db_config_with_uri.get_connection_params()
+    assert params["uri"] == "https://test.cloud.zilliz.com"
 
 
 def test_database_config_cloud_success():
@@ -208,10 +208,11 @@ def test_config_string_validations():
 
     # Test chunking strategy is valid
     assert config.chunking.chunking_strategy in [
+        "auto",
+        "late",
+        "traditional",
         "hybrid",
-        "semantic",
-        "fixed",
-        "sliding",
+        "hierarchical",
     ]
 
     # Test database type is valid

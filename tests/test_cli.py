@@ -95,13 +95,12 @@ class TestCLIFunctionality:
 
         console = Console()
 
-        # Mock results object
+        # Mock results object with actual properties used by display_results
         mock_results = MagicMock()
-        mock_results.successful_files = 5
-        mock_results.failed_files = 1
-        mock_results.total_chunks = 150
-        mock_results.total_images = 25
-        mock_results.processing_time = 45.5
+        mock_results.success_count = 5
+        mock_results.partial_success_count = 0
+        mock_results.failure_count = 1
+        mock_results.total_time = 45.5
         mock_results.errors = ["Test error message"]
 
         test_files = [Path(f"test{i}.pdf") for i in range(6)]
@@ -176,7 +175,7 @@ class TestCLIFunctionality:
             assert "Models Directory" in config_text
             assert "Models to Download" in config_text
 
-    @patch("docling_japanese_books.cli.MilvusVectorDB")
+    @patch("docling_japanese_books.vector_db.MilvusVectorDB")
     def test_database_connection_test(self, mock_vector_db):
         """Test database connection testing functionality."""
         from rich.console import Console
@@ -193,13 +192,13 @@ class TestCLIFunctionality:
         }
         mock_vector_db.return_value = mock_instance
 
-        result = _test_database_connection(console, "local")
-        assert result is True
+        result = _test_database_connection(console, "local", "", "", "")
+        assert result is None  # Function doesn't return boolean
 
-        # Mock failed connection
+        # Mock failed connection - should raise exception
         mock_vector_db.side_effect = Exception("Connection failed")
-        result = _test_database_connection(console, "local")
-        assert result is False
+        with pytest.raises(Exception, match="Connection failed"):
+            _test_database_connection(console, "local", "", "", "")
 
     def test_current_config_display(self):
         """Test current configuration display."""

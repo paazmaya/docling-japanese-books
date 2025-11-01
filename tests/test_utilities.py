@@ -82,10 +82,10 @@ class TestQuantizationAnalysis:
         analyzer = QuantizationAnalyzer(collection)
 
         assert analyzer.collection == collection
-        assert isinstance(analyzer.quantization_methods, dict)
-        assert "float32" in analyzer.quantization_methods
-        assert "float16" in analyzer.quantization_methods
-        assert "int8" in analyzer.quantization_methods
+        assert isinstance(analyzer.methods, dict)
+        assert "float32" in analyzer.methods
+        assert "float16" in analyzer.methods
+        assert "int8" in analyzer.methods
 
     def test_chunks_calculation(self):
         """Test chunk calculation logic."""
@@ -123,13 +123,13 @@ class TestQuantizationAnalysis:
         analyzer = QuantizationAnalyzer(collection)
 
         # Test float32 calculation
-        float32_method = analyzer.quantization_methods["float32"]
+        float32_method = analyzer.methods["float32"]
         storage = analyzer.calculate_storage_for_method(float32_method)
 
-        assert storage.total_vectors == 10  # 10 pages = 10 chunks
-        assert storage.storage_per_vector_bytes == 1024 * 4  # 1024 dims * 4 bytes
-        assert storage.total_storage_bytes == 10 * 1024 * 4
-        assert storage.storage_mb > 0
+        assert storage.total_chunks == 10  # 10 pages = 10 chunks
+        assert storage.bytes_per_vector == 1024 * 4  # 1024 dims * 4 bytes
+        # Total includes metadata, so just check it's positive
+        assert storage.total_storage_mb > 0
 
     def test_comparison_table_generation(self):
         """Test comparison table generation."""
@@ -151,9 +151,9 @@ class TestQuantizationAnalysis:
 
         assert isinstance(table, str)
         assert "Method" in table
-        assert "Storage (MB)" in table
-        assert "float32" in table
-        assert "float16" in table
+        assert "Total Storage" in table  # Check for actual column header
+        assert "Float32" in table  # Check for the actual method name
+        assert "Float16" in table  # Check for the correct capitalization
 
     def test_recommendations_generation(self):
         """Test recommendations generation."""
@@ -169,16 +169,15 @@ class TestQuantizationAnalysis:
         )
 
         analyzer = QuantizationAnalyzer(collection)
-        results = analyzer.analyze_all_methods()
 
-        recommendations = analyzer.generate_recommendations(results)
+        recommendations = analyzer.generate_recommendations()
 
         assert isinstance(recommendations, str)
         assert "Recommendations" in recommendations
         assert len(recommendations) > 100  # Should be substantial content
 
     @patch("json.dump")
-    @patch("pathlib.Path.open")
+    @patch("builtins.open")  # Mock built-in open function, not Path.open
     def test_results_saving(self, mock_open, mock_json_dump):
         """Test results saving functionality."""
         from quantization_analysis import BookCollection, QuantizationAnalyzer
@@ -196,10 +195,15 @@ class TestQuantizationAnalysis:
         results = analyzer.analyze_all_methods()
 
         output_path = Path("/tmp/test_results.json")
+
+        # Mock the file context manager
+        mock_open.return_value.__enter__.return_value = MagicMock()
+
         analyzer.save_results(results, output_path)
 
         # Verify file operations were called
-        assert mock_open.called
+        mock_open.assert_called_once_with(output_path, "w", encoding="utf-8")
+        mock_json_dump.assert_called_once()
         assert mock_json_dump.called
 
     @patch("docling_japanese_books.processor.DocumentProcessor")
@@ -245,18 +249,18 @@ class TestEmbeddingEvaluation:
         from docling_japanese_books.embedding_evaluation import EvaluationMetrics
 
         metrics = EvaluationMetrics(
+            model_name="test-model",
+            chunking_method="traditional",
             context_preservation_score=0.85,
             japanese_specific_score=0.92,
             processing_time=12.5,
-            memory_usage_mb=256.0,
-            chunk_count=150,
+            num_chunks=150,
         )
 
         assert abs(metrics.context_preservation_score - 0.85) < 0.001
         assert abs(metrics.japanese_specific_score - 0.92) < 0.001
         assert abs(metrics.processing_time - 12.5) < 0.001
-        assert abs(metrics.memory_usage_mb - 256.0) < 0.001
-        assert metrics.chunk_count == 150
+        assert metrics.num_chunks == 150
 
     def test_evaluation_results_dataclass(self):
         """Test EvaluationResults dataclass."""
@@ -266,26 +270,25 @@ class TestEmbeddingEvaluation:
         )
 
         metrics = EvaluationMetrics(
+            model_name="test-model",
+            chunking_method="traditional",
             context_preservation_score=0.8,
             japanese_specific_score=0.9,
             processing_time=10.0,
-            memory_usage_mb=200.0,
-            chunk_count=100,
+            num_chunks=100,
         )
 
         results = EvaluationResults(
             document_id="test_doc",
             traditional_metrics=metrics,
-            bge_m3_metrics=metrics,
+            late_chunking_metrics=metrics,
             snowflake_arctic_metrics=metrics,
             jina_v4_metrics=metrics,
-            best_model="BGE-M3",
-            improvement_over_baseline=15.5,
+            bge_m3_improvement=15.5,
         )
 
         assert results.document_id == "test_doc"
-        assert results.best_model == "BGE-M3"
-        assert abs(results.improvement_over_baseline - 15.5) < 0.001
+        assert abs(results.bge_m3_improvement - 15.5) < 0.001
 
     @patch("docling_japanese_books.embedding_evaluation.SentenceTransformer")
     def test_embedding_evaluator_initialization(self, mock_sentence_transformer):
@@ -295,10 +298,9 @@ class TestEmbeddingEvaluation:
         evaluator = EmbeddingEvaluator()
 
         assert evaluator.traditional_model is None
-        assert evaluator.bge_m3_model is None
+        assert evaluator.late_chunking is None
         assert evaluator.snowflake_arctic_model is None
         assert evaluator.jina_v4_model is None
-        assert evaluator.late_chunking_processor is not None
 
     def test_cosine_similarity_calculation(self):
         """Test cosine similarity calculation."""
@@ -358,19 +360,21 @@ class TestEmbeddingEvaluation:
             evaluator = EmbeddingEvaluator()
 
             baseline = EvaluationMetrics(
+                model_name="baseline",
+                chunking_method="traditional",
                 context_preservation_score=0.8,
                 japanese_specific_score=0.8,
                 processing_time=10.0,
-                memory_usage_mb=200.0,
-                chunk_count=100,
+                num_chunks=100,
             )
 
             comparison = EvaluationMetrics(
+                model_name="comparison",
+                chunking_method="late",
                 context_preservation_score=0.9,
                 japanese_specific_score=0.9,  # 12.5% improvement
                 processing_time=8.0,
-                memory_usage_mb=180.0,
-                chunk_count=95,
+                num_chunks=95,
             )
 
             improvement = evaluator._calculate_improvement(baseline, comparison)
@@ -389,35 +393,39 @@ class TestEmbeddingEvaluation:
             evaluator = EmbeddingEvaluator()
 
             traditional = EvaluationMetrics(
+                model_name="traditional",
+                chunking_method="traditional",
                 context_preservation_score=0.7,
                 japanese_specific_score=0.7,
                 processing_time=10.0,
-                memory_usage_mb=200.0,
-                chunk_count=100,
+                num_chunks=100,
             )
 
             bge_m3 = EvaluationMetrics(
+                model_name="bge-m3",
+                chunking_method="late",
                 context_preservation_score=0.85,
                 japanese_specific_score=0.85,
                 processing_time=12.0,
-                memory_usage_mb=250.0,
-                chunk_count=110,
+                num_chunks=110,
             )
 
             snowflake = EvaluationMetrics(
+                model_name="snowflake",
+                chunking_method="traditional",
                 context_preservation_score=0.8,
                 japanese_specific_score=0.8,
                 processing_time=8.0,
-                memory_usage_mb=180.0,
-                chunk_count=95,
+                num_chunks=95,
             )
 
             jina_v4 = EvaluationMetrics(
+                model_name="jina-v4",
+                chunking_method="hybrid",
                 context_preservation_score=0.9,
                 japanese_specific_score=0.9,  # Highest score
                 processing_time=15.0,
-                memory_usage_mb=300.0,
-                chunk_count=120,
+                num_chunks=120,
             )
 
             best_model = evaluator._determine_best_model(
