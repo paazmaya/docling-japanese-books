@@ -31,7 +31,26 @@ class ImageProcessor:
     ) -> list[dict[str, str]]:
         """Extract images from document and store them separately.
 
-        Returns list of image metadata with file paths and annotations.
+        This method processes all images found in a DoclingDocument, extracts them,
+        saves them to the filesystem with SHA-256 hashed filenames, and collects
+        associated metadata including captions and vision model annotations.
+
+        Args:
+            document: The DoclingDocument containing images to extract.
+            doc_id: Unique identifier for the document, used for directory naming.
+
+        Returns:
+            List of dictionaries containing image metadata:
+                - hash: SHA-256 hash of the image content
+                - filename: Generated filename (hash + .png extension)
+                - path: Full path to the saved image file
+                - width: Image width in pixels
+                - height: Image height in pixels
+                - caption: Caption text from the document
+                - annotations: List of vision model descriptions/annotations
+
+        Raises:
+            OSError: If there are issues creating directories or saving files.
         """
         images_dir = self.config.get_output_path(self.config.output.images_output_dir)
         doc_images_dir = images_dir / doc_id
@@ -64,7 +83,27 @@ class ImageProcessor:
         output_dir: Path,
         document: DoclingDocument,
     ) -> Optional[dict[str, str]]:
-        """Process a single picture item."""
+        """Process a single picture item and save it to the filesystem.
+
+        This method handles the extraction, hashing, and storage of a single image
+        from a document. It generates a SHA-256 hash for consistent naming,
+        extracts metadata, and collects any available annotations.
+
+        Args:
+            picture: The PictureItem from the document to process.
+            doc_id: Document identifier for reference tracking.
+            index: Sequential index of this picture within the document.
+            output_dir: Directory where the image file will be saved.
+            document: Parent document for caption text extraction.
+
+        Returns:
+            Dictionary containing image metadata if successful, None if processing fails.
+            Keys include: document_id, image_index, filename, file_path, hash,
+            width, height, caption, and annotations.
+
+        Raises:
+            Exception: Re-raised after logging if image processing fails.
+        """
         try:
             # Extract image data
             image_data = self._extract_image_data(picture)

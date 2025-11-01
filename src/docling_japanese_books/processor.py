@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
 from docling.datamodel.base_models import InputFormat
@@ -69,8 +70,16 @@ class DocumentProcessor:
                 cache_dir=str(cache_dir),
             )
             self.logger.info("Granite Docling tokenizer loaded successfully")
+        except (OSError, ValueError, ConnectionError) as e:
+            self.logger.error(
+                f"Failed to load tokenizer {self.config.chunking.tokenizer_model}: {e}"
+            )
+            self.logger.info("Falling back to basic tokenization")
+            self.tokenizer = None
         except Exception as e:
-            self.logger.error(f"Failed to load tokenizer: {e}")
+            self.logger.error(
+                f"Unexpected error loading tokenizer {self.config.chunking.tokenizer_model}: {e}"
+            )
             self.logger.info("Falling back to basic tokenization")
             self.tokenizer = None
 
@@ -79,31 +88,59 @@ class DocumentProcessor:
         try:
             self.chunker = HierarchicalChunker()
             self.logger.info("Document chunker initialized")
+        except ImportError as e:
+            self.logger.error(f"Failed to import HierarchicalChunker: {e}")
+            raise RuntimeError(
+                "HierarchicalChunker is not available. Please install required dependencies."
+            ) from e
         except Exception as e:
-            self.logger.error(f"Failed to initialize chunker: {e}")
-            raise
+            self.logger.error(f"Unexpected error initializing chunker: {e}")
+            raise RuntimeError(f"Failed to initialize document chunker: {e}") from e
 
     def _setup_vector_db(self) -> None:
         """Initialize Milvus vector database connection."""
         try:
             self.vector_db = MilvusVectorDB()
             self.logger.info("Milvus vector database initialized")
+        except ConnectionError as e:
+            self.logger.error(f"Failed to connect to vector database: {e}")
+            raise RuntimeError(
+                "Cannot connect to vector database. Please check database configuration."
+            ) from e
+        except ImportError as e:
+            self.logger.error(f"Vector database dependencies missing: {e}")
+            raise RuntimeError(
+                "Vector database dependencies not installed. Please install required packages."
+            ) from e
         except Exception as e:
-            self.logger.error(f"Failed to initialize vector database: {e}")
-            raise
+            self.logger.error(f"Unexpected error initializing vector database: {e}")
+            raise RuntimeError(f"Failed to initialize vector database: {e}") from e
 
     def _setup_image_processor(self) -> None:
         """Initialize image extraction and annotation processor."""
         try:
             self.image_processor = ImageProcessor()
             self.logger.info("Image processor initialized")
+        except ImportError as e:
+            self.logger.error(f"Image processing dependencies missing: {e}")
+            raise RuntimeError(
+                "Image processing dependencies not installed. Please install required packages."
+            ) from e
         except Exception as e:
-            self.logger.error(f"Failed to initialize image processor: {e}")
-            raise
+            self.logger.error(f"Unexpected error initializing image processor: {e}")
+            raise RuntimeError(f"Failed to initialize image processor: {e}") from e
 
     def _setup_docling(self) -> None:
         """Configure Docling converter with vision model support for Japanese documents."""
-        pipeline_options = PdfPipelineOptions(
+        pipeline_options = self._create_pipeline_options()
+        self._configure_table_options(pipeline_options)
+        self._configure_vision_options(pipeline_options)
+        self._setup_artifacts_directory(pipeline_options)
+        self._create_document_converter(pipeline_options)
+
+    def _create_pipeline_options(self) -> PdfPipelineOptions:
+        """Create basic pipeline options."""
+        return PdfPipelineOptions(
             accelerator_options=AcceleratorOptions(device=AcceleratorDevice.CUDA),
             artifacts_path=self.config.docling.artifacts_path,
             do_ocr=self.config.docling.enable_ocr,
@@ -116,44 +153,61 @@ class DocumentProcessor:
             ),
         )
 
+    def _configure_table_options(self, pipeline_options: PdfPipelineOptions) -> None:
+        """Configure table structure options."""
         if self.config.docling.do_table_structure:
             pipeline_options.table_structure_options.do_cell_matching = (
                 self.config.docling.do_cell_matching
             )
+
+    def _configure_vision_options(self, pipeline_options: PdfPipelineOptions) -> None:
+        """Configure vision model options."""
         if self.config.docling.enable_vision:
-            pipeline_options.do_picture_description = True
-            pipeline_options.images_scale = self.config.docling.images_scale
-            pipeline_options.generate_picture_images = True
-            from docling.datamodel.pipeline_options import PictureDescriptionVlmOptions
-
-            pipeline_options.picture_description_options = PictureDescriptionVlmOptions(
-                repo_id=self.config.docling.vision_model_repo_id,
-                prompt=self.config.docling.vision_prompt,
-                generation_config={"max_new_tokens": 200, "do_sample": False},
-                batch_size=8,
-                scale=2,
-                picture_area_threshold=0.05,
-            )
-
-            self.logger.info(
-                f"Vision model enabled: {self.config.docling.vision_model_repo_id}"
-            )
+            self._setup_vision_model(pipeline_options)
         else:
-            pipeline_options.images_scale = self.config.docling.images_scale
-            pipeline_options.generate_picture_images = True
-            self.logger.info("Basic image generation enabled (vision models disabled)")
+            self._setup_basic_images(pipeline_options)
+
+    def _setup_vision_model(self, pipeline_options: PdfPipelineOptions) -> None:
+        """Setup vision model configuration."""
+        from docling.datamodel.pipeline_options import PictureDescriptionVlmOptions
+
+        pipeline_options.do_picture_description = True
+        pipeline_options.images_scale = self.config.docling.images_scale
+        pipeline_options.generate_picture_images = True
+
+        pipeline_options.picture_description_options = PictureDescriptionVlmOptions(
+            repo_id=self.config.docling.vision_model_repo_id,
+            prompt=self.config.docling.vision_prompt,
+            generation_config={"max_new_tokens": 200, "do_sample": False},
+            batch_size=8,
+            scale=2,
+            picture_area_threshold=0.05,
+        )
+
+        self.logger.info(
+            f"Vision model enabled: {self.config.docling.vision_model_repo_id}"
+        )
+
+    def _setup_basic_images(self, pipeline_options: PdfPipelineOptions) -> None:
+        """Setup basic image processing without vision model."""
+        pipeline_options.images_scale = self.config.docling.images_scale
+        pipeline_options.generate_picture_images = True
+        self.logger.info("Basic image generation enabled (vision models disabled)")
+
+    def _setup_artifacts_directory(self, pipeline_options: PdfPipelineOptions) -> None:
+        """Ensure artifacts directory exists and configure path."""
         artifacts_path = Path(self.config.docling.artifacts_path).resolve()
         artifacts_path.mkdir(parents=True, exist_ok=True)
         pipeline_options.artifacts_path = artifacts_path
-
         self.logger.info(f"Models will be stored in: {artifacts_path}")
 
+    def _create_document_converter(self, pipeline_options: PdfPipelineOptions) -> None:
+        """Create the document converter with configured options."""
         self.converter = DocumentConverter(
             format_options={
                 InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
             }
         )
-
         self.logger.info("Docling converter initialized with vision model support")
 
     def _ensure_directories(self) -> None:
@@ -163,24 +217,45 @@ class DocumentProcessor:
 
     def discover_files(self, directory: Path) -> list[Path]:
         """Find supported files recursively, filtering by size limits."""
+        if not directory.exists():
+            raise FileNotFoundError(f"Directory does not exist: {directory}")
+
+        if not directory.is_dir():
+            raise NotADirectoryError(f"Path is not a directory: {directory}")
+
         files = []
 
-        for file_path in directory.rglob("*"):
-            if file_path.is_file() and self.config.is_supported_file(file_path):
-                file_size_mb = file_path.stat().st_size / (1024 * 1024)
-                if file_size_mb > self.config.docling.max_file_size_mb:
-                    self.logger.warning(
-                        f"Skipping {file_path}: size {file_size_mb:.1f}MB exceeds limit"
-                    )
-                    continue
+        try:
+            for file_path in directory.rglob("*"):
+                if file_path.is_file() and self.config.is_supported_file(file_path):
+                    file_size_mb = file_path.stat().st_size / (1024 * 1024)
+                    if file_size_mb > self.config.docling.max_file_size_mb:
+                        self.logger.warning(
+                            f"Skipping {file_path}: size {file_size_mb:.1f}MB exceeds limit"
+                        )
+                        continue
 
-                files.append(file_path)
+                    files.append(file_path)
+        except (OSError, PermissionError) as e:
+            self.logger.error(f"Error accessing files in {directory}: {e}")
+            raise RuntimeError(f"Failed to scan directory {directory}: {e}") from e
 
         self.logger.info(f"Discovered {len(files)} supported files")
         return files
 
     def process_files(self, files: list[Path]) -> ProcessingResults:
         """Process files in batches with progress tracking."""
+        if not files:
+            self.logger.warning("No files provided for processing")
+            return ProcessingResults()
+
+        # Validate that all files exist and are readable
+        for file_path in files:
+            if not file_path.exists():
+                raise FileNotFoundError(f"File does not exist: {file_path}")
+            if not file_path.is_file():
+                raise ValueError(f"Path is not a file: {file_path}")
+
         results = ProcessingResults()
         start_time = time.time()
 
@@ -243,7 +318,7 @@ class DocumentProcessor:
 
         return results
 
-    def _process_images(self, conv_result, doc_filename) -> list:
+    def _process_images(self, conv_result: Any, doc_filename: str) -> list[Any]:
         """Extract and store document images with vision annotations."""
         extracted_images = []
         if self.config.docling.enable_vision and conv_result.document.pictures:
@@ -259,7 +334,7 @@ class DocumentProcessor:
                 )
         return extracted_images
 
-    def _create_image_refs_mapping(self, extracted_images) -> dict:
+    def _create_image_refs_mapping(self, extracted_images: list[Any]) -> dict[str, Any]:
         """Map image self-references to metadata for chunk enhancement."""
         image_refs = {}
         if extracted_images:
@@ -273,7 +348,9 @@ class DocumentProcessor:
                     }
         return image_refs
 
-    def _enhance_chunk_with_images(self, chunk_text, chunk_images) -> str:
+    def _enhance_chunk_with_images(
+        self, chunk_text: str, chunk_images: list[dict[str, Any]]
+    ) -> str:
         """Append image references and vision annotations to chunk text."""
         enhanced_text = chunk_text
 
@@ -293,8 +370,8 @@ class DocumentProcessor:
         return enhanced_text
 
     def _create_enhanced_chunks(
-        self, chunks, extracted_images
-    ) -> tuple[list[str], list[dict]]:
+        self, chunks: Any, extracted_images: list[Any]
+    ) -> tuple[list[str], list[dict[str, Any]]]:
         """Generate text chunks enriched with image information and metadata."""
         chunk_texts = []
         chunk_metadata = []
@@ -400,7 +477,7 @@ class DocumentProcessor:
                 }
                 f.write(str(chunk_data) + "\n")
 
-    def _save_document(self, conv_result) -> None:
+    def _save_document(self, conv_result: Any) -> None:
         """Process document with Late Chunking, save outputs, and store in vector database."""
         doc_filename = conv_result.input.file.stem
         file_path = conv_result.input.file

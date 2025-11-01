@@ -15,6 +15,9 @@ import numpy as np
 from docling_japanese_books.config import config
 from docling_japanese_books.enhanced_chunking import create_chunking_strategy
 
+# Setup logging
+logger = logging.getLogger(__name__)
+
 # Type definitions for better type safety
 ModelConfig = dict[str, str | None]
 EvaluationResult = dict[str, Any]
@@ -154,58 +157,58 @@ def compare_all_strategies() -> ComparisonResults:
 
 
 def print_comparison_report(results: ComparisonResults) -> None:
-    """Print a formatted comparison report."""
-    _print_report_header()
+    """Log a formatted comparison report."""
+    _log_report_header()
 
     for model_name, model_results in results.items():
-        _print_model_section(model_name, model_results)
+        _log_model_section(model_name, model_results)
 
 
-def _print_report_header():
-    """Print the report header."""
-    print("\n" + "=" * 80)
-    print("CHUNKING STRATEGY COMPARISON REPORT")
-    print("=" * 80)
+def _log_report_header():
+    """Log the report header."""
+    logger.info("=" * 80)
+    logger.info("CHUNKING STRATEGY COMPARISON REPORT")
+    logger.info("=" * 80)
 
 
-def _print_model_section(model_name: str, model_results: dict[str, Any]):  # type: ignore[misc]
-    """Print results for a specific model."""
-    print(f"\n📊 MODEL: {model_name}")
-    print("-" * 60)
+def _log_model_section(model_name: str, model_results: dict[str, Any]):  # type: ignore[misc]
+    """Log results for a specific model."""
+    logger.info(f"\n📊 MODEL: {model_name}")
+    logger.info("-" * 60)
 
     for strategy, result in model_results.items():
         if result["success"]:
-            _print_successful_strategy(strategy, result)
+            _log_successful_strategy(strategy, result)
         else:
-            _print_failed_strategy(strategy, result)
+            _log_failed_strategy(strategy, result)
 
 
-def _print_successful_strategy(strategy: str, result: dict[str, Any]):  # type: ignore[misc]
-    """Print results for a successful strategy."""
-    print(f"\n✅ Strategy: {strategy.upper()}")
+def _log_successful_strategy(strategy: str, result: dict[str, Any]):  # type: ignore[misc]
+    """Log results for a successful strategy."""
+    logger.info(f"\n✅ Strategy: {strategy.upper()}")
     if result.get("task"):
-        print(f"   Task: {result['task']}")
-    print(f"   Processing Time: {result['processing_time']:.2f}s")
-    print(f"   Chunks Generated: {result['num_chunks']}")
-    print(f"   Avg Chunk Length: {result['avg_chunk_length']:.0f} chars")
-    print(f"   Embedding Dimension: {result['embedding_dim']}")
-    print(f"   Context Preservation: {result['context_preservation']:.3f}")
+        logger.info(f"   Task: {result['task']}")
+    logger.info(f"   Processing Time: {result['processing_time']:.2f}s")
+    logger.info(f"   Chunks Generated: {result['num_chunks']}")
+    logger.info(f"   Avg Chunk Length: {result['avg_chunk_length']:.0f} chars")
+    logger.info(f"   Embedding Dimension: {result['embedding_dim']}")
+    logger.info(f"   Context Preservation: {result['context_preservation']:.3f}")
 
-    _print_chunk_preview(result)
-
-
-def _print_failed_strategy(strategy: str, result: dict[str, Any]):  # type: ignore[misc]
-    """Print results for a failed strategy."""
-    print(f"\n❌ Strategy: {strategy.upper()}")
-    print(f"   Error: {result['error']}")
+    _log_chunk_preview(result)
 
 
-def _print_chunk_preview(result: dict[str, Any]):  # type: ignore[misc]
-    """Print a preview of the first chunk."""
+def _log_failed_strategy(strategy: str, result: dict[str, Any]):  # type: ignore[misc]
+    """Log results for a failed strategy."""
+    logger.error(f"\n❌ Strategy: {strategy.upper()}")
+    logger.error(f"   Error: {result['error']}")
+
+
+def _log_chunk_preview(result: dict[str, Any]):  # type: ignore[misc]
+    """Log a preview of the first chunk."""
     if result.get("chunks_preview"):
         first_chunk = result["chunks_preview"][0]
         preview = first_chunk[:100] + "..." if len(first_chunk) > 100 else first_chunk
-        print(f"   First Chunk Preview: {preview}")
+        logger.debug(f"   First Chunk Preview: {preview}")
 
 
 def generate_recommendations(results: ComparisonResults) -> list[str]:
@@ -276,32 +279,32 @@ def generate_recommendations(results: ComparisonResults) -> list[str]:
 
 def main():
     """Main execution function."""
-    print("Starting comprehensive chunking strategy evaluation...")
-    print(f"Using configuration from: {config}")
+    logger.info("Starting comprehensive chunking strategy evaluation...")
+    logger.info(f"Using configuration from: {config}")
 
     # Run comparison
     results = compare_all_strategies()
 
-    # Print report
+    # Print report (using print for user-facing output)
     print_comparison_report(results)
 
     # Generate recommendations
     recommendations = generate_recommendations(results)
 
-    print("\n" + "=" * 80)
-    print("RECOMMENDATIONS")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("RECOMMENDATIONS")
+    logger.info("=" * 80)
     for rec in recommendations:
-        print(f"{rec}")
+        logger.info(f"{rec}")
 
-    print("\n" + "=" * 80)
-    print("IMPLEMENTATION NOTES")
-    print("=" * 80)
-    print("1. Late chunking preserves better context but may be slower")
-    print("2. Hybrid strategies balance performance and quality")
-    print("3. Task-specific models (Jina v4) can be optimized for retrieval")
-    print("4. Consider your use case: speed vs. quality trade-offs")
-    print("5. Japanese text benefits from language-aware chunking")
+    logger.info("=" * 80)
+    logger.info("IMPLEMENTATION NOTES")
+    logger.info("=" * 80)
+    logger.info("1. Late chunking preserves better context but may be slower")
+    logger.info("2. Hybrid strategies balance performance and quality")
+    logger.info("3. Task-specific models (Jina v4) can be optimized for retrieval")
+    logger.info("4. Consider your use case: speed vs. quality trade-offs")
+    logger.info("5. Japanese text benefits from language-aware chunking")
 
 
 if __name__ == "__main__":

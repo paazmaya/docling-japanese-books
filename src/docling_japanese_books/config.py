@@ -276,6 +276,12 @@ class ChunkingConfig(BaseModel):
 
     def get_model_config(self, model_name: str) -> dict[str, Any]:
         """Get configuration for specific model."""
+        if not isinstance(model_name, str):
+            raise TypeError(f"model_name must be a string, got {type(model_name)}")
+
+        if not model_name.strip():
+            raise ValueError("model_name cannot be empty")
+
         return self.model_specific_settings.get(
             model_name,
             {
