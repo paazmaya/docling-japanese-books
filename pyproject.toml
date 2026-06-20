@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "docling>=2.0.0",
+    "docling>=2.94.0",
     "docling-core>=1.0.0",
     "pymilvus>=2.6.2",
     "click>=8.1.0",
@@ -33,7 +33,7 @@ dependencies = [
     "sentence-transformers>=2.2.0",
     "transformers>=4.30.0",
     "FlagEmbedding>=1.2.0",
-    "torch>=2.0.0",
+    "torch>=2.10.0",
     "numpy>=1.24.0",
     "pandas>=2.0.0",
     "pathlib-mate>=1.0.0",
@@ -45,7 +45,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff>=0.1.0",
-    "pytest>=7.0.0",
+    "pytest>=9.0.3",
     "pytest-cov>=4.0.0",
     "mypy>=1.5.0",
     "pre-commit>=3.0.0",
@@ -53,15 +53,15 @@ dev = [
 
 vision = [
     "opencv-python>=4.8.0",
-    "pillow>=10.0.0",
-    "requests>=2.31.0",
+    "pillow>=12.2.0",
+    "requests>=2.33.0",
     "docling[vlm]>=2.0.0",
 ]
 
 databases = [
     "pymongo>=4.5.0",
     "redis>=5.0.0",
-    "chromadb>=0.4.0",
+    "chromadb>=1.5.9",
     "qdrant-client>=1.6.0",
 ]
 
@@ -217,7 +217,7 @@ directory = "htmlcov"
 [dependency-groups]
 dev = [
     "huggingface-hub[hf-xet]>=0.35.3",
-    "pytest>=8.4.2",
+    "pytest>=9.0.3",
     "pytest-cov>=7.0.0",
     "ruff>=0.14.1",
 ]
