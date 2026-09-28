@@ -7,6 +7,10 @@ on:
 env:
   PYTHON_VERSION: "3.14"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+  
 jobs:
   lint-and-basic-tests:
     runs-on: ubuntu-latest
