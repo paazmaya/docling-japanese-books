@@ -6,7 +6,7 @@ authors = [
     {name = "Juga Paazmaya", email = "paazmaya@yahoo.com"}
 ]
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.12"
 keywords = ["docling", "document-processing", "llm", "training-data"]
 classifiers = [
