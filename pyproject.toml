@@ -115,7 +115,7 @@ cov = [
 
 # Ruff configuration
 [tool.ruff]
-target-version = "py39"
+target-version = "py312"
 line-length = 88
 
 [tool.ruff.lint]
@@ -152,7 +152,7 @@ line-ending = "auto"
 
 # MyPy configuration
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_incomplete_defs = true
