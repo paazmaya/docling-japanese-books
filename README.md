@@ -1,6 +1,7 @@
 # Docling Japanese Books - Document Processing Pipeline
 
 [![Python CI](https://github.com/paazmaya/docling-japanese-books/actions/workflows/ci.yml/badge.svg)](https://github.com/paazmaya/docling-japanese-books/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/paazmaya/docling-japanese-books/graph/badge.svg)](https://codecov.io/gh/paazmaya/docling-japanese-books)
 
 A streamlined document processing tool that uses [Docling](https://github.com/docling-project/docling) to extract, process, and store Japanese books and documents for LLM training workflows.
 
